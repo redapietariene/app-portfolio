@@ -438,8 +438,6 @@ function sel(id,key,opts,all){return `<label class="f">${all}<select id="${id}" 
 function resultsView(){
   const areas=[...new Set(apps.map(a=>a.area).filter(Boolean))].sort();
   const fa=filteredApps(), fr=filtered();
-  const agreed=fa.filter(a=>a.final?.savedAt);
-  const counts=[0,1,2].map(i=>agreed.filter(a=>a.final.overall===i).length);
   return `<div class="row between"><div><h2>All results</h2><p class="lede">Agreed results per application, and every individual answer behind them.</p></div>
     <button class="primary" data-act="export">Export to Excel</button></div>
   <div class="panel grid2">
@@ -448,7 +446,6 @@ function resultsView(){
     ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
     ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
   </div>
-  <div class="row" style="gap:20px"><span><b class="mono">${fa.length}</b> <span class="muted">applications</span></span><span><b class="mono">${agreed.length}</b> <span class="muted">agreed</span></span>${counts.map((n,i)=>`<span class="cell lv${i}">${n} ${LV[i]}</span>`).join("")}<span><b class="mono">${fr.length}</b> <span class="muted">individual answers</span></span></div>
   <h3>Agreed results</h3>
   <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th></tr></thead><tbody>
   ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td><td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td></tr>`}).join("") : `<tr><td colspan="9" class="muted">No applications match these filters.</td></tr>`}
