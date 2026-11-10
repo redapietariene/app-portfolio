@@ -104,6 +104,12 @@ th{background:var(--sunk);font-weight:600;font-size:.78rem;color:var(--muted);wh
 tbody tr:last-child td{border-bottom:0}
 td.c{text-align:center}
 .cell{display:inline-block;min-width:74px;text-align:center;padding:3px 8px;border-radius:5px;font-weight:600;font-size:.8rem}
+.grp-h td{background:var(--bg);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--muted);padding-top:14px}
+.dim-r td:first-child{border-left:3px solid var(--line);padding-left:14px}
+.tot-r td{background:var(--accent-soft);border-top:2px solid var(--accent);border-bottom:2px solid var(--accent)}
+.tot-r td:first-child{border-left:3px solid var(--accent)}
+.tot-r .cell{font-size:.88rem;padding:5px 10px;box-shadow:inset 0 0 0 1.5px currentColor}
+.tot-l{display:grid;gap:1px}.tot-l b{font-family:var(--f-display)}.tot-l small{color:var(--muted);font-size:.75rem;white-space:nowrap}
 .gap0{color:var(--low)}.gap1{color:var(--med)}.gap2{color:var(--crit);font-weight:700}
 .hiddenval{color:var(--muted);letter-spacing:.2em}
 .comments{display:grid;gap:6px;margin:0;padding:0;list-style:none;font-size:.86rem}
@@ -382,7 +388,13 @@ function compareView(){
   const rows = compareRows(entries);
   const final = editable? (a.final||{}) : a.final;
   body += `<div class="tbl-wrap"><table><thead><tr><th>Dimension</th>${entries.map(e=>`<th>${esc(e.name||"Someone")}</th>`).join("")}<th>Spread</th><th>Agreed result</th></tr></thead><tbody>
-    ${rows.map(r=>`<tr><td style="${r.bold?"font-weight:700":""}">${r.label}</td>${r.vals.map(v=>`<td class="c">${valCell(r,v)}</td>`).join("")}<td>${gapTxt(gapOf(r))}</td><td>${(final||editable)?agreedCtl(r,final,editable):'<span class="muted">Not agreed yet</span>'}</td></tr>`).join("")}
+    ${rows.map(r=>{
+      const span=entries.length+3;
+      const grp = r.k==="ops"? `<tr class="grp-h"><td colspan="${span}">Impact if unavailable</td></tr>` : r.k==="mtpd"? `<tr class="grp-h"><td colspan="${span}">Downtime tolerance and recovery</td></tr>` : "";
+      const isDim = DIMS.some(d=>d.k===r.k), isTot = r.k==="overall";
+      const label = isTot? `<div class="tot-l"><b>Overall criticality</b><small>= highest of the 5 impact ratings above</small></div>` : r.label;
+      return grp+`<tr class="${isDim?"dim-r":""} ${isTot?"tot-r":""}"><td>${label}</td>${r.vals.map(v=>`<td class="c">${valCell(r,v)}</td>`).join("")}<td>${gapTxt(gapOf(r))}</td><td>${(final||editable)?agreedCtl(r,final,editable):'<span class="muted">Not agreed yet</span>'}</td></tr>`;
+    }).join("")}
   </tbody></table></div>`;
   if(editable) body += `<div class="panel" style="display:grid;gap:10px"><label class="f">Agreed notes / decisions<textarea id="ag-notes" rows="2">${esc(final?.notes||"")}</textarea></label><div class="row"><button class="primary" data-act="saveFinal">Save agreed result</button>${a.final?.savedAt?`<span class="muted" style="font-size:.85rem">Last saved ${fmtDate(a.final.savedAt)}</span>`:""}</div></div>`;
   else if(final?.notes) body += `<div class="panel"><div class="eyebrow">Agreed notes</div><p style="margin:4px 0 0">${esc(final.notes)}</p></div>`;
