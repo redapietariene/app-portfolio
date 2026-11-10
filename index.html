@@ -139,7 +139,6 @@ const DIMS = [
 const MTPD = [{v:2,l:"2 hours",t:"Low tolerance"},{v:8,l:"8 hours",t:"Medium tolerance"},{v:24,l:"24 hours",t:"High tolerance"},{v:72,l:"More than 24 h",t:"Very high tolerance"}];
 const RTO  = [{v:1,l:"1 hour"},{v:2,l:"2 hours"},{v:4,l:"4 hours"},{v:8,l:"8 hours"},{v:24,l:"24 hours"},{v:72,l:"3 days"}];
 const RPO  = [{v:0,l:"No data loss"},{v:0.25,l:"15 minutes"},{v:1,l:"1 hour"},{v:4,l:"4 hours"},{v:24,l:"24 hours"}];
-const ROLES = ["Business owner","Process owner / key user","IT / application owner","Risk & compliance","Other"];
 const lbl = (arr,v)=> (arr.find(o=>o.v===v)||{}).l || "—";
 const mtpdLevel = v => v==null?null : v<=2?2 : v<=8?1 : 0;
 const overallOf = r => { const vals = DIMS.map(d=>r?.[d.k]).filter(v=>v!=null); return vals.length? Math.max(...vals) : null; };
@@ -150,7 +149,7 @@ const me={id:null,owner:false,name:""};
 let apps=[], reveals={}, myDoc=null, allResp=[];
 let ready={apps:false};
 let view="assess", openAppId=null, compareId=null, draft=null;
-const filt={app:"",area:"",role:"",level:"",status:""};
+const filt={app:"",area:"",level:"",status:""};
 let confirmDel=null;
 
 /* ---------- helpers ---------- */
@@ -206,24 +205,21 @@ function assessForm(){
   const a = apps.find(x=>x.id===openAppId);
   if(!a){openAppId=null;return assessList()}
   const saved = myDoc?.answers?.[a.id];
-  if(!draft) draft = JSON.parse(JSON.stringify(saved||{ratings:{},comments:{},name:myDoc?.name||me.name||"",role:myDoc?.role||"",dept:myDoc?.dept||""}));
+  if(!draft) draft = JSON.parse(JSON.stringify(saved||{ratings:{},name:myDoc?.name||me.name||""}));
   const locked = a.status!=="open";
   const dis = locked? "disabled":"";
-  const r=draft.ratings||{}, c=draft.comments||{};
+  const r=draft.ratings||{};
   return `<div class="row"><button class="small" data-act="back">← All applications</button></div>
   <div><div class="eyebrow">Impact assessment</div><h2>${esc(a.name)}</h2>
   <p class="lede">${esc(a.area||"")}${a.owner?` · Responsible: ${esc(a.owner)}`:""}</p></div>
   ${locked? `<div class="banner warn">Answers for this application are closed (${a.status==="agreed"?"result agreed":"answers revealed"}). You can see the group comparison under <a href="#compare">Compare</a>.</div>`:""}
   <form class="panel" id="af" style="display:grid;gap:4px">
-    <div class="grid2" style="padding-bottom:12px">
+    <div style="padding-bottom:12px;max-width:360px">
       <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" required ${dis}></label>
-      <label class="f">Your role<select id="f-role" name="role" required ${dis}><option value="">Choose…</option>${ROLES.map(o=>`<option ${draft.role===o?"selected":""}>${o}</option>`).join("")}</select></label>
-      <label class="f">Department / team<input id="f-dept" name="dept" value="${esc(draft.dept)}" ${dis}></label>
     </div>
     <h3 style="padding-top:8px">What would be the impact if the application became unavailable?</h3>
     ${DIMS.map(d=>`<fieldset class="dim" style="border-inline:0;border-bottom:0;margin:0;padding-inline:0"><legend class="eyebrow" style="float:left;width:100%;padding:0;font-size:.8rem;color:var(--fg)">${d.label}</legend>
       <div class="opts">${d.d.map((t,i)=>`<label class="opt l${i}"><input type="radio" id="r-${d.k}-${i}" name="r-${d.k}" value="${i}" ${r[d.k]===i?"checked":""} ${dis}><span><b>${LV[i]}</b>${t}</span></label>`).join("")}</div>
-      <textarea id="c-${d.k}" name="c-${d.k}" rows="1" placeholder="Why? An example helps the discussion (optional)" ${dis}>${esc(c[d.k]||"")}</textarea>
     </fieldset>`).join("")}
     <div class="dim"><h3>How long can the business tolerate the outage before impact occurs?</h3>
       <p class="muted" style="margin:0;font-size:.88rem">MTPD, the maximum tolerable period of disruption.</p>
@@ -248,9 +244,9 @@ function assessForm(){
 function readForm(){
   const f=$("#af"); if(!f) return;
   const fd=new FormData(f);
-  draft.name=fd.get("name")||""; draft.role=fd.get("role")||""; draft.dept=fd.get("dept")||""; draft.note=fd.get("note")||"";
-  draft.ratings={}; draft.comments={};
-  DIMS.forEach(d=>{const v=fd.get("r-"+d.k); if(v!=null) draft.ratings[d.k]=+v; const c=(fd.get("c-"+d.k)||"").trim(); if(c) draft.comments[d.k]=c;});
+  draft.name=fd.get("name")||""; draft.note=fd.get("note")||"";
+  draft.ratings={};
+  DIMS.forEach(d=>{const v=fd.get("r-"+d.k); if(v!=null) draft.ratings[d.k]=+v;});
   ["mtpd","rto","rpo"].forEach(k=>{const v=fd.get(k); draft[k]= v==null?null:+v;});
 }
 function updateSummary(){
@@ -262,17 +258,17 @@ function updateSummary(){
 }
 async function submitForm(e){
   e.preventDefault(); readForm();
-  const missing=[]; if(!draft.name.trim()) missing.push("your name"); if(!draft.role) missing.push("your role");
+  const missing=[]; if(!draft.name.trim()) missing.push("your name");
   DIMS.forEach(d=>{if(draft.ratings[d.k]==null) missing.push(d.label.toLowerCase())});
   if(draft.mtpd==null) missing.push("tolerable outage (MTPD)"); if(draft.rto==null) missing.push("RTO");
   if(missing.length){toast("Please answer: "+missing.slice(0,3).join(", ")+(missing.length>3?"…":""));return}
   const now=Date.now(); const prev=myDoc?.answers?.[openAppId];
-  const ans={name:draft.name.trim(),role:draft.role,dept:draft.dept.trim(),ratings:draft.ratings,comments:draft.comments,mtpd:draft.mtpd,rto:draft.rto,rpo:draft.rpo,note:draft.note.trim(),submittedAt:prev?.submittedAt||now,updatedAt:now};
+  const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd,rto:draft.rto,rpo:draft.rpo,note:draft.note.trim(),submittedAt:prev?.submittedAt||now,updatedAt:now};
   const btn=e.submitter; if(btn) btn.disabled=true;
   try{
     const ref=db.doc("responses/"+me.id);
     const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
-    await ref.set({name:ans.name,role:ans.role,dept:ans.dept,updatedAt:now,answers});
+    await ref.set({name:ans.name,updatedAt:now,answers});
     toast(prev?"Answers updated":"Answers submitted"); draft=null; openAppId=null; render();
   }catch(err){ toast(err?.code==="invalid_argument"?"You don't have permission to answer here. Ask the facilitator to give you Contributor or Editor access.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
 }
@@ -330,19 +326,17 @@ function compareView(){
   const editable = me.owner;
   const rows = compareRows(entries);
   const final = editable? (a.final||{}) : a.final;
-  body += `<div class="tbl-wrap"><table><thead><tr><th>Dimension</th>${entries.map(e=>`<th>${esc(e.name||"Someone")}<div style="font-weight:400;text-transform:none">${esc(e.role||"")}</div></th>`).join("")}<th>Spread</th><th>Agreed result</th></tr></thead><tbody>
+  body += `<div class="tbl-wrap"><table><thead><tr><th>Dimension</th>${entries.map(e=>`<th>${esc(e.name||"Someone")}</th>`).join("")}<th>Spread</th><th>Agreed result</th></tr></thead><tbody>
     ${rows.map(r=>`<tr><td style="${r.bold?"font-weight:700":""}">${r.label}</td>${r.vals.map(v=>`<td class="c">${valCell(r,v)}</td>`).join("")}<td>${gapTxt(gapOf(r))}</td><td>${(final||editable)?agreedCtl(r,final,editable):'<span class="muted">Not agreed yet</span>'}</td></tr>`).join("")}
   </tbody></table></div>`;
   if(editable) body += `<div class="panel" style="display:grid;gap:10px"><label class="f">Agreed notes / decisions<textarea id="ag-notes" rows="2">${esc(final?.notes||"")}</textarea></label><div class="row"><button class="primary" data-act="saveFinal">Save agreed result</button>${a.final?.savedAt?`<span class="muted" style="font-size:.85rem">Last saved ${fmtDate(a.final.savedAt)}</span>`:""}</div></div>`;
   else if(final?.notes) body += `<div class="panel"><div class="eyebrow">Agreed notes</div><p style="margin:4px 0 0">${esc(final.notes)}</p></div>`;
-  const notes = DIMS.map(d=>{const cs=entries.filter(e=>e.comments?.[d.k]).map(e=>`<li><b>${esc(e.name||"Someone")}</b> (${LV[e.ratings?.[d.k]]??"—"}): ${esc(e.comments[d.k])}</li>`); return cs.length?`<div style="display:grid;gap:6px"><h3 style="font-size:.95rem">${d.label}</h3><ul class="comments">${cs.join("")}</ul></div>`:""}).join("")
-    + (entries.some(e=>e.note)? `<div style="display:grid;gap:6px"><h3 style="font-size:.95rem">Other notes</h3><ul class="comments">${entries.filter(e=>e.note).map(e=>`<li><b>${esc(e.name||"Someone")}</b>: ${esc(e.note)}</li>`).join("")}</ul></div>`:"");
-  if(notes) body += `<div class="panel" style="display:grid;gap:14px"><h3>Reasons people gave</h3>${notes}</div>`;
+  if(entries.some(e=>e.note)) body += `<div class="panel" style="display:grid;gap:10px"><h3>Notes from participants</h3><ul class="comments">${entries.filter(e=>e.note).map(e=>`<li><b>${esc(e.name||"Someone")}</b>: ${esc(e.note)}</li>`).join("")}</ul></div>`;
   return head+picker+body;
 }
 async function doReveal(){
   const a=apps.find(x=>x.id===compareId); const live=answersFor(a.id);
-  const entries = live.map(e=>({uid:e.uid,name:e.name||"",role:e.role||"",dept:e.dept||"",ratings:e.ratings||{},comments:e.comments||{},mtpd:e.mtpd??null,rto:e.rto??null,rpo:e.rpo??null,note:e.note||""}));
+  const entries = live.map(e=>({uid:e.uid,name:e.name||"",ratings:e.ratings||{},mtpd:e.mtpd??null,rto:e.rto??null,rpo:e.rpo??null,note:e.note||""}));
   try{ await db.doc("reveals/"+a.id).set({appId:a.id,revealedAt:Date.now(),entries});
     if(a.status==="open") await db.doc("apps/"+a.id).update({status:"revealed"});
     toast("Answers revealed"); }catch{ toast("Couldn't reveal. Try again."); }
@@ -363,12 +357,12 @@ function allRows(){
   const rows=[];
   allResp.forEach(r=>{ Object.entries(r.data.answers||{}).forEach(([appId,ans])=>{
     const a=apps.find(x=>x.id===appId); if(!a||!ans.submittedAt) return;
-    rows.push({appId,app:a.name,area:a.area||"",status:a.status||"open",name:ans.name||"",role:ans.role||"",dept:ans.dept||"",r:ans.ratings||{},overall:overallOf(ans.ratings),mtpd:ans.mtpd,rto:ans.rto,rpo:ans.rpo,note:ans.note||"",submittedAt:ans.submittedAt});
+    rows.push({appId,app:a.name,area:a.area||"",status:a.status||"open",name:ans.name||"",r:ans.ratings||{},overall:overallOf(ans.ratings),mtpd:ans.mtpd,rto:ans.rto,rpo:ans.rpo,note:ans.note||"",submittedAt:ans.submittedAt});
   });});
   return rows.sort((x,y)=>x.app.localeCompare(y.app)||x.name.localeCompare(y.name));
 }
 function filtered(){
-  return allRows().filter(x=>(!filt.app||x.appId===filt.app)&&(!filt.area||x.area===filt.area)&&(!filt.role||x.role===filt.role)&&(filt.level===""||x.overall===+filt.level)&&(!filt.status||x.status===filt.status));
+  return allRows().filter(x=>(!filt.app||x.appId===filt.app)&&(!filt.area||x.area===filt.area)&&(filt.level===""||x.overall===+filt.level)&&(!filt.status||x.status===filt.status));
 }
 function filteredApps(){
   return apps.filter(a=>(!filt.app||a.id===filt.app)&&(!filt.area||(a.area||"")===filt.area)&&(!filt.status||(a.status||"open")===filt.status)&&(filt.level===""||a.final?.overall===+filt.level)).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
@@ -376,7 +370,6 @@ function filteredApps(){
 function sel(id,key,opts,all){return `<label class="f">${all}<select id="${id}" data-filt="${key}"><option value="">All</option>${opts.map(o=>`<option value="${esc(o[0])}" ${String(filt[key])===String(o[0])?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>`}
 function resultsView(){
   const areas=[...new Set(apps.map(a=>a.area).filter(Boolean))].sort();
-  const roles=[...new Set(allRows().map(r=>r.role).filter(Boolean))].sort();
   const fa=filteredApps(), fr=filtered();
   const agreed=fa.filter(a=>a.final?.savedAt);
   const counts=[0,1,2].map(i=>agreed.filter(a=>a.final.overall===i).length);
@@ -387,7 +380,6 @@ function resultsView(){
     ${sel("fl-area","area",areas.map(a=>[a,a]),"Business area")}
     ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
     ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
-    ${sel("fl-role","role",roles.map(r=>[r,r]),"Participant role")}
   </div>
   <div class="row" style="gap:20px"><span><b class="mono">${fa.length}</b> <span class="muted">applications</span></span><span><b class="mono">${agreed.length}</b> <span class="muted">agreed</span></span>${counts.map((n,i)=>`<span class="cell lv${i}">${n} ${LV[i]}</span>`).join("")}<span><b class="mono">${fr.length}</b> <span class="muted">individual answers</span></span></div>
   <h3>Agreed results</h3>
@@ -395,8 +387,8 @@ function resultsView(){
   ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td>${DIMS.map(d=>`<td>${f.savedAt?lvCell(f[d.k]):""}</td>`).join("")}<td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td></tr>`}).join("") : `<tr><td colspan="14" class="muted">No applications match these filters.</td></tr>`}
   </tbody></table></div>
   <h3>Individual answers</h3>
-  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Participant</th><th>Role</th><th>Department</th>${DIMS.map(d=>`<th>${d.label.replace(" impact","")}</th>`).join("")}<th>Overall</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Submitted</th></tr></thead><tbody>
-  ${fr.length? fr.map(x=>`<tr><td>${esc(x.app)}</td><td>${esc(x.name)}</td><td>${esc(x.role)}</td><td>${esc(x.dept)}</td>${DIMS.map(d=>`<td>${lvCell(x.r[d.k])}</td>`).join("")}<td>${lvCell(x.overall)}</td><td class="mono">${lbl(MTPD,x.mtpd)}</td><td class="mono">${lbl(RTO,x.rto)}</td><td class="mono">${x.rpo!=null?lbl(RPO,x.rpo):"—"}</td><td class="mono">${fmtDate(x.submittedAt)}</td></tr>`).join("") : `<tr><td colspan="14" class="muted">No answers match these filters yet.</td></tr>`}
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Participant</th>${DIMS.map(d=>`<th>${d.label.replace(" impact","")}</th>`).join("")}<th>Overall</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Submitted</th></tr></thead><tbody>
+  ${fr.length? fr.map(x=>`<tr><td>${esc(x.app)}</td><td>${esc(x.name)}</td>${DIMS.map(d=>`<td>${lvCell(x.r[d.k])}</td>`).join("")}<td>${lvCell(x.overall)}</td><td class="mono">${lbl(MTPD,x.mtpd)}</td><td class="mono">${lbl(RTO,x.rto)}</td><td class="mono">${x.rpo!=null?lbl(RPO,x.rpo):"—"}</td><td class="mono">${fmtDate(x.submittedAt)}</td></tr>`).join("") : `<tr><td colspan="12" class="muted">No answers match these filters yet.</td></tr>`}
   </tbody></table></div>`;
 }
 async function exportXlsx(){
@@ -404,7 +396,7 @@ async function exportXlsx(){
   const lvN=v=>v==null?"":LV[v];
   const s1=filteredApps().map(a=>{const f=a.final||{};const o={"Application":a.name,"Business area":a.area||"","Responsible":a.owner||"","Session date":a.sessionDate||"","Status":a.status||"open","Answers":countFor(a.id)};
     DIMS.forEach(d=>o[d.label]=f.savedAt?lvN(f[d.k]):""); o["Overall criticality"]=f.savedAt?lvN(f.overall):""; o["MTPD"]=f.mtpd!=null?lbl(MTPD,f.mtpd):""; o["RTO"]=f.rto!=null?lbl(RTO,f.rto):""; o["RPO"]=f.rpo!=null?lbl(RPO,f.rpo):""; o["Agreed notes"]=f.notes||""; o["Agreed on"]=f.savedAt?new Date(f.savedAt).toISOString().slice(0,10):""; return o;});
-  const s2=filtered().map(x=>{const o={"Application":x.app,"Business area":x.area,"Participant":x.name,"Role":x.role,"Department":x.dept};
+  const s2=filtered().map(x=>{const o={"Application":x.app,"Business area":x.area,"Participant":x.name};
     DIMS.forEach(d=>o[d.label]=lvN(x.r[d.k])); o["Overall criticality"]=lvN(x.overall); o["MTPD"]=lbl(MTPD,x.mtpd); o["RTO"]=lbl(RTO,x.rto); o["RPO"]=x.rpo!=null?lbl(RPO,x.rpo):""; o["Notes"]=x.note; o["Submitted"]=new Date(x.submittedAt).toISOString().slice(0,10); return o;});
   const wb=XLSX.utils.book_new();
   const mk=(rows)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{"(no rows)":""}]); const keys=Object.keys(rows[0]||{}); ws["!cols"]=keys.map(k=>({wch:Math.min(40,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)})); return ws;};

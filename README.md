@@ -18,13 +18,13 @@ Each participant rates an application **on their own** — nobody sees the other
 | RTO – recovery time objective | 1 h … 3 days (warns if longer than MTPD) |
 | RPO – recovery point objective (data loss) | none … 24 h |
 
-Each rating has an optional "why" comment, which is shown during the discussion.
+Participants enter only their name, the ratings and an optional note.
 
 ## Views
 
 - **Assess** – participants pick an application and submit their answers (editable until the reveal).
 - **Compare** – facilitator reveals answers; a side-by-side grid marks each row *Aligned*, *Differs* or *Discuss*; the facilitator sets the agreed values and notes.
-- **Results** (facilitator) – all applications and all individual answers in one place, filterable by application, business area, status, criticality and participant role.
+- **Results** (facilitator) – all applications and all individual answers in one place, filterable by application, business area, status and criticality.
 - **Applications** (facilitator) – add / delete applications, see answer counts and status.
 - **Export to Excel** – `.xlsx` with two sheets: *Agreed results* and *Individual answers* (respects current filters).
 
