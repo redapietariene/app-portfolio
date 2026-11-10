@@ -1,0 +1,491 @@
+<title>App Criticality Assessment</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: a working console — sticky header with view tabs, one content column (max 1180px), dense tables for facilitators, roomy cards for participants. */
+:root{
+  --bg:#f5f7f9; --surface:#ffffff; --sunk:#eef2f5; --line:#d8dfe6; --fg:#14202b; --muted:#5a6977;
+  --accent:#0d6e9e; --accent-fg:#ffffff; --accent-soft:#e1f0f7;
+  --low:#3f8f3a; --low-soft:#e4f2e2; --med:#d4691f; --med-soft:#fbeadb; --crit:#b3261e; --crit-soft:#f8e1df;
+  --focus:#0d6e9e;
+  --f-display:"Archivo","Segoe UI",system-ui,sans-serif;
+  --f-body:"Public Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f161c; --surface:#16212a; --sunk:#1c2833; --line:#2a3a47; --fg:#e4ecf2; --muted:#93a4b3;
+  --accent:#4fb3e3; --accent-fg:#06202e; --accent-soft:#16384a;
+  --low:#79c972; --low-soft:#1f3520; --med:#f0974f; --med-soft:#3d2614; --crit:#f07a70; --crit-soft:#41201d;
+  --focus:#4fb3e3; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#16212a; --sunk:#1c2833; --line:#2a3a47; --fg:#e4ecf2; --muted:#93a4b3;
+  --accent:#4fb3e3; --accent-fg:#06202e; --accent-soft:#16384a;
+  --low:#79c972; --low-soft:#1f3520; --med:#f0974f; --med-soft:#3d2614; --crit:#f07a70; --crit-soft:#41201d;
+  --focus:#4fb3e3; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
+*{box-sizing:border-box}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.01em}
+h1{font-size:1.25rem;font-weight:800}
+h2{font-size:1.45rem;font-weight:700}
+h3{font-size:1.05rem;font-weight:700}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.hdr{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px}
+.brand{display:flex;align-items:baseline;gap:10px;flex:1;min-width:0}
+.brand small{color:var(--muted);font-size:.8rem}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{padding:7px 12px;border-radius:6px;color:var(--muted);text-decoration:none;font-weight:600;font-size:.9rem}
+nav a:hover{background:var(--sunk);color:var(--fg)}
+nav a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+main{padding-block:24px 64px;display:grid;gap:20px}
+.lede{color:var(--muted);max-width:68ch;margin:6px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+label.f{display:grid;gap:4px;font-size:.82rem;font-weight:600;color:var(--muted);min-width:0}
+input,select,textarea{font:inherit;color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%}
+textarea{resize:vertical;min-height:38px}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:6px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+button:hover{background:var(--sunk)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+button.primary:hover{filter:brightness(1.08)}
+button.danger{color:var(--crit);border-color:var(--crit)}
+button.small{padding:4px 10px;font-size:.85rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.st-open{background:var(--accent-soft);color:var(--accent)}
+.st-revealed{background:var(--med-soft);color:var(--med)}
+.st-agreed{background:var(--low-soft);color:var(--low)}
+.lv0{background:var(--low-soft);color:var(--low)}
+.lv1{background:var(--med-soft);color:var(--med)}
+.lv2{background:var(--crit-soft);color:var(--crit)}
+.banner{padding:12px 16px;border-radius:8px;background:var(--sunk);border:1px solid var(--line)}
+.banner.warn{background:var(--med-soft);border-color:var(--med);color:var(--fg)}
+/* app picker cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.card{display:grid;gap:8px;text-align:left;padding:16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:400}
+.card:hover{border-color:var(--accent);background:var(--surface)}
+.card .meta{font-size:.82rem;color:var(--muted)}
+/* assessment form */
+.dim{display:grid;gap:10px;padding-block:16px;border-top:1px solid var(--line)}
+.dim:first-of-type{border-top:0}
+.opts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.opt{position:relative}
+.opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;cursor:pointer;margin:0}
+.opt span{display:grid;gap:4px;height:100%;padding:10px 12px;border-radius:8px;border:1.5px solid var(--line);font-size:.88rem;background:var(--surface)}
+.opt b{font-family:var(--f-display);font-size:.85rem;letter-spacing:.02em}
+.opt input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+.opt.l0 input:checked+span{border-color:var(--low);background:var(--low-soft)}
+.opt.l1 input:checked+span{border-color:var(--med);background:var(--med-soft)}
+.opt.l2 input:checked+span{border-color:var(--crit);background:var(--crit-soft)}
+.opt.l0 b{color:var(--low)}.opt.l1 b{color:var(--med)}.opt.l2 b{color:var(--crit)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.chip span{display:inline-grid;padding:8px 14px;border-radius:8px;border:1.5px solid var(--line);font-size:.9rem;line-height:1.25}
+.chip span small{color:var(--muted);font-size:.75rem}
+.chip input:checked+span{border-color:var(--accent);background:var(--accent-soft)}
+.chip input:focus-visible+span{outline:2px solid var(--focus);outline-offset:2px}
+.sticky-foot{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));margin:0 -20px -20px;padding-inline:20px;border-radius:0 0 10px 10px}
+.summary-lv{font-family:var(--f-display);font-weight:800}
+/* tables */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.86rem}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:var(--sunk);font-weight:600;font-size:.78rem;color:var(--muted);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.c{text-align:center}
+.cell{display:inline-block;min-width:74px;text-align:center;padding:3px 8px;border-radius:5px;font-weight:600;font-size:.8rem}
+.gap0{color:var(--low)}.gap1{color:var(--med)}.gap2{color:var(--crit);font-weight:700}
+.hiddenval{color:var(--muted);letter-spacing:.2em}
+.comments{display:grid;gap:6px;margin:0;padding:0;list-style:none;font-size:.86rem}
+.comments li{padding:6px 10px;background:var(--sunk);border-radius:6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:600;z-index:20}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-radius:6px;background:var(--crit-soft)}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
+.how li{counter-increment:s;padding:12px 14px;border-radius:8px;background:var(--sunk);font-size:.88rem}
+.how li::before{content:"Step " counter(s);display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:2px}
+@media (max-width:640px){.opts{grid-template-columns:1fr}.panel{padding:16px}.sticky-foot{margin:0 -16px -16px;padding-inline:16px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header><div class="wrap hdr">
+  <div class="brand"><h1>App Criticality Assessment</h1><small id="who"></small></div>
+  <nav id="nav" aria-label="Views"></nav>
+</div></header>
+<main class="wrap" id="main">
+  <div class="panel"><p class="muted" style="margin:0">Connecting to the shared assessment store…</p></div>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- reference data (from the assessment form) ---------- */
+const LV = ["Low","Medium","Critical"];
+const DIMS = [
+  {k:"ops", label:"Business operations impact", d:["Minor disruption; business continues normally","Main processes disrupted; business operates with limitations","Critical processes stopped; business operations severely affected"]},
+  {k:"cust",label:"Customers affected", d:["Few individual customers, not VIP","Significant customer group","Most or all customers"]},
+  {k:"fin", label:"Financial impact", d:["Minor financial loss","Noticeable financial loss","Significant financial loss"]},
+  {k:"legal",label:"Legal / compliance impact", d:["No significant consequences","Minor legal or compliance issues","Serious legal or regulatory consequences"]},
+  {k:"rep", label:"Reputation impact", d:["Minor or no complaints","Significant customer complaints","Major reputational damage or negative media coverage"]}
+];
+const MTPD = [{v:2,l:"2 hours",t:"Low tolerance"},{v:8,l:"8 hours",t:"Medium tolerance"},{v:24,l:"24 hours",t:"High tolerance"},{v:72,l:"More than 24 h",t:"Very high tolerance"}];
+const RTO  = [{v:1,l:"1 hour"},{v:2,l:"2 hours"},{v:4,l:"4 hours"},{v:8,l:"8 hours"},{v:24,l:"24 hours"},{v:72,l:"3 days"}];
+const RPO  = [{v:0,l:"No data loss"},{v:0.25,l:"15 minutes"},{v:1,l:"1 hour"},{v:4,l:"4 hours"},{v:24,l:"24 hours"}];
+const ROLES = ["Business owner","Process owner / key user","IT / application owner","Risk & compliance","Other"];
+const lbl = (arr,v)=> (arr.find(o=>o.v===v)||{}).l || "—";
+const mtpdLevel = v => v==null?null : v<=2?2 : v<=8?1 : 0;
+const overallOf = r => { const vals = DIMS.map(d=>r?.[d.k]).filter(v=>v!=null); return vals.length? Math.max(...vals) : null; };
+
+/* ---------- state ---------- */
+let db=null, user=null;
+const me={id:null,owner:false,name:""};
+let apps=[], reveals={}, myDoc=null, allResp=[];
+let ready={apps:false};
+let view="assess", openAppId=null, compareId=null, draft=null;
+const filt={app:"",area:"",role:"",level:"",status:""};
+let confirmDel=null;
+
+/* ---------- helpers ---------- */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = t=> t? new Date(t).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : "—";
+const lvCell = v=> v==null? '<span class="muted">—</span>' : `<span class="cell lv${v}">${LV[v]}</span>`;
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
+const statusPill = s=>`<span class="pill st-${s||"open"}">${s==="revealed"?"Answers revealed":s==="agreed"?"Agreed":"Collecting answers"}</span>`;
+const slug = s=> (String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"app")+"-"+Math.random().toString(36).slice(2,7);
+function answersFor(appId){ // owner only: live answers
+  return allResp.map(r=>({uid:r.id, ...(r.data.answers?.[appId]||{})})).filter(a=>a.submittedAt);
+}
+function countFor(appId){ return me.owner? answersFor(appId).length : (reveals[appId]?.entries?.length ?? null); }
+
+/* ---------- routing ---------- */
+function views(){ return me.owner? [["assess","Assess"],["compare","Compare"],["results","Results"],["apps","Applications"]] : [["assess","Assess"],["compare","Compare"]]; }
+function route(){ const h=location.hash.slice(1); view = views().some(v=>v[0]===h)? h : "assess"; render(); }
+addEventListener("hashchange",route);
+
+/* ---------- render ---------- */
+function render(){
+  $("#nav").innerHTML = views().map(([k,l])=>`<a href="#${k}" ${k===view?'aria-current="page"':""}>${l}</a>`).join("");
+  $("#who").textContent = me.id? (me.owner? "Facilitator view" : "Participant view") : "";
+  if(!db){return}
+  const m=$("#main");
+  if(view==="assess") m.innerHTML = openAppId? assessForm() : assessList();
+  else if(view==="compare") m.innerHTML = compareView();
+  else if(view==="results") m.innerHTML = resultsView();
+  else if(view==="apps") m.innerHTML = appsView();
+  if(view==="assess" && openAppId) updateSummary();
+}
+
+/* ----- Assess: list ----- */
+function assessList(){
+  const list = apps.filter(a=>a.status!=="archived").sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  const mine = myDoc?.answers||{};
+  const intro = `<div><h2>Rate the applications you own</h2>
+    <p class="lede">Pick an application and answer on your own. Nobody else sees your answers until the facilitator reveals them in the meeting. Then the group compares and agrees one result.</p></div>`;
+  if(!ready.apps) return intro+`<div class="panel muted">Loading applications…</div>`;
+  if(!list.length) return intro+`<div class="panel"><h3>No applications yet</h3><p class="muted">${me.owner?'Add the first one under <a href="#apps">Applications</a>. Participants will see it here.':'The facilitator has not added any applications yet. Check back after the invite.'}</p></div>`;
+  return intro+`<div class="cards">${list.map(a=>{
+    const done = mine[a.id]?.submittedAt;
+    return `<button class="card" data-act="openApp" data-id="${a.id}">
+      <div class="row between"><h3>${esc(a.name)}</h3>${statusPill(a.status)}</div>
+      <div class="meta">${esc(a.area||"No business area")}${a.sessionDate?` · Session ${esc(a.sessionDate)}`:""}</div>
+      <div class="meta">${done? `Your answer saved ${fmtDate(done)}` : a.status==="open"? "Not answered yet" : "Closed for answers"}</div>
+    </button>`}).join("")}</div>`;
+}
+
+/* ----- Assess: form ----- */
+function assessForm(){
+  const a = apps.find(x=>x.id===openAppId);
+  if(!a){openAppId=null;return assessList()}
+  const saved = myDoc?.answers?.[a.id];
+  if(!draft) draft = JSON.parse(JSON.stringify(saved||{ratings:{},comments:{},name:myDoc?.name||me.name||"",role:myDoc?.role||"",dept:myDoc?.dept||""}));
+  const locked = a.status!=="open";
+  const dis = locked? "disabled":"";
+  const r=draft.ratings||{}, c=draft.comments||{};
+  return `<div class="row"><button class="small" data-act="back">← All applications</button></div>
+  <div><div class="eyebrow">Impact assessment</div><h2>${esc(a.name)}</h2>
+  <p class="lede">${esc(a.area||"")}${a.owner?` · Responsible: ${esc(a.owner)}`:""}</p></div>
+  ${locked? `<div class="banner warn">Answers for this application are closed (${a.status==="agreed"?"result agreed":"answers revealed"}). You can see the group comparison under <a href="#compare">Compare</a>.</div>`:""}
+  <form class="panel" id="af" style="display:grid;gap:4px">
+    <div class="grid2" style="padding-bottom:12px">
+      <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" required ${dis}></label>
+      <label class="f">Your role<select id="f-role" name="role" required ${dis}><option value="">Choose…</option>${ROLES.map(o=>`<option ${draft.role===o?"selected":""}>${o}</option>`).join("")}</select></label>
+      <label class="f">Department / team<input id="f-dept" name="dept" value="${esc(draft.dept)}" ${dis}></label>
+    </div>
+    <h3 style="padding-top:8px">What would be the impact if the application became unavailable?</h3>
+    ${DIMS.map(d=>`<fieldset class="dim" style="border-inline:0;border-bottom:0;margin:0;padding-inline:0"><legend class="eyebrow" style="float:left;width:100%;padding:0;font-size:.8rem;color:var(--fg)">${d.label}</legend>
+      <div class="opts">${d.d.map((t,i)=>`<label class="opt l${i}"><input type="radio" id="r-${d.k}-${i}" name="r-${d.k}" value="${i}" ${r[d.k]===i?"checked":""} ${dis}><span><b>${LV[i]}</b>${t}</span></label>`).join("")}</div>
+      <textarea id="c-${d.k}" name="c-${d.k}" rows="1" placeholder="Why? An example helps the discussion (optional)" ${dis}>${esc(c[d.k]||"")}</textarea>
+    </fieldset>`).join("")}
+    <div class="dim"><h3>How long can the business tolerate the outage before impact occurs?</h3>
+      <p class="muted" style="margin:0;font-size:.88rem">MTPD, the maximum tolerable period of disruption.</p>
+      <div class="chips">${MTPD.map(o=>`<label class="chip"><input type="radio" id="m-${o.v}" name="mtpd" value="${o.v}" ${draft.mtpd===o.v?"checked":""} ${dis}><span>${o.l}<small>${o.t}</small></span></label>`).join("")}</div>
+    </div>
+    <div class="dim"><h3>How fast must the application be back? (RTO)</h3>
+      <p class="muted" style="margin:0;font-size:.88rem">Recovery Time Objective. Usually shorter than the MTPD, to leave time for catching up.</p>
+      <div class="chips">${RTO.map(o=>`<label class="chip"><input type="radio" id="t-${o.v}" name="rto" value="${o.v}" ${draft.rto===o.v?"checked":""} ${dis}><span>${o.l}</span></label>`).join("")}</div>
+      <p id="rtoWarn" class="banner warn" hidden style="margin:0"></p>
+    </div>
+    <div class="dim"><h3>How much recent data could you afford to lose? (RPO)</h3>
+      <p class="muted" style="margin:0;font-size:.88rem">Recovery Point Objective. Work done after the last backup would have to be re-entered.</p>
+      <div class="chips">${RPO.map(o=>`<label class="chip"><input type="radio" id="p-${o.v}" name="rpo" value="${o.v}" ${draft.rpo===o.v?"checked":""} ${dis}><span>${o.l}</span></label>`).join("")}</div>
+    </div>
+    <div class="dim"><label class="f">Anything else the group should know?<textarea id="f-note" name="note" rows="2" ${dis}>${esc(draft.note||"")}</textarea></label></div>
+    <div class="sticky-foot row between">
+      <div id="sum" class="muted"></div>
+      ${locked?"":`<button class="primary" type="submit">${saved?"Update my answers":"Submit my answers"}</button>`}
+    </div>
+  </form>`;
+}
+function readForm(){
+  const f=$("#af"); if(!f) return;
+  const fd=new FormData(f);
+  draft.name=fd.get("name")||""; draft.role=fd.get("role")||""; draft.dept=fd.get("dept")||""; draft.note=fd.get("note")||"";
+  draft.ratings={}; draft.comments={};
+  DIMS.forEach(d=>{const v=fd.get("r-"+d.k); if(v!=null) draft.ratings[d.k]=+v; const c=(fd.get("c-"+d.k)||"").trim(); if(c) draft.comments[d.k]=c;});
+  ["mtpd","rto","rpo"].forEach(k=>{const v=fd.get(k); draft[k]= v==null?null:+v;});
+}
+function updateSummary(){
+  const s=$("#sum"); if(!s) return;
+  const ov=overallOf(draft.ratings); const n=DIMS.filter(d=>draft.ratings?.[d.k]!=null).length;
+  s.innerHTML = ov==null? `${n} of 5 impact areas rated` : `Your overall criticality: <span class="summary-lv cell lv${ov}">${LV[ov]}</span> <span style="font-size:.8rem">(highest of ${n}/5 rated areas)</span>`;
+  const w=$("#rtoWarn"); if(w){ const bad = draft.rto!=null && draft.mtpd!=null && draft.rto>draft.mtpd && draft.mtpd!==72;
+    w.hidden=!bad; if(bad) w.textContent=`RTO (${lbl(RTO,draft.rto)}) is longer than the tolerable outage (${lbl(MTPD,draft.mtpd)}). The business would feel the impact before recovery.`; }
+}
+async function submitForm(e){
+  e.preventDefault(); readForm();
+  const missing=[]; if(!draft.name.trim()) missing.push("your name"); if(!draft.role) missing.push("your role");
+  DIMS.forEach(d=>{if(draft.ratings[d.k]==null) missing.push(d.label.toLowerCase())});
+  if(draft.mtpd==null) missing.push("tolerable outage (MTPD)"); if(draft.rto==null) missing.push("RTO");
+  if(missing.length){toast("Please answer: "+missing.slice(0,3).join(", ")+(missing.length>3?"…":""));return}
+  const now=Date.now(); const prev=myDoc?.answers?.[openAppId];
+  const ans={name:draft.name.trim(),role:draft.role,dept:draft.dept.trim(),ratings:draft.ratings,comments:draft.comments,mtpd:draft.mtpd,rto:draft.rto,rpo:draft.rpo,note:draft.note.trim(),submittedAt:prev?.submittedAt||now,updatedAt:now};
+  const btn=e.submitter; if(btn) btn.disabled=true;
+  try{
+    const ref=db.doc("responses/"+me.id);
+    const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
+    await ref.set({name:ans.name,role:ans.role,dept:ans.dept,updatedAt:now,answers});
+    toast(prev?"Answers updated":"Answers submitted"); draft=null; openAppId=null; render();
+  }catch(err){ toast(err?.code==="invalid_argument"?"You don't have permission to answer here. Ask the facilitator to give you Contributor or Editor access.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
+}
+
+/* ----- Compare ----- */
+function compareRows(entries, final){
+  const rows = [
+    ...DIMS.map(d=>({k:d.k,label:d.label,vals:entries.map(e=>e.ratings?.[d.k]),kind:"lv"})),
+    {k:"overall",label:"Overall criticality",vals:entries.map(e=>overallOf(e.ratings)),kind:"lv",bold:true},
+    {k:"mtpd",label:"Tolerable outage (MTPD)",vals:entries.map(e=>e.mtpd),kind:"mtpd"},
+    {k:"rto",label:"Recovery time (RTO)",vals:entries.map(e=>e.rto),kind:"rto"},
+    {k:"rpo",label:"Data loss (RPO)",vals:entries.map(e=>e.rpo),kind:"rpo"},
+  ];
+  return rows;
+}
+function gapOf(row){
+  const v=row.vals.filter(x=>x!=null); if(v.length<2) return null;
+  if(row.kind==="lv"){const g=Math.max(...v)-Math.min(...v); return g;}
+  const arr = row.kind==="mtpd"?MTPD:row.kind==="rto"?RTO:RPO; const idx=v.map(x=>arr.findIndex(o=>o.v===x));
+  const g=Math.max(...idx)-Math.min(...idx); return g===0?0:g===1?1:2;
+}
+const gapTxt=g=> g==null?"":g===0?'<span class="gap0">Aligned</span>':g===1?'<span class="gap1">Differs</span>':'<span class="gap2">Discuss</span>';
+function valCell(row,v){
+  if(row.kind==="lv") return lvCell(v);
+  if(v==null) return '<span class="muted">—</span>';
+  if(row.kind==="mtpd") return `<span class="cell lv${mtpdLevel(v)}">${lbl(MTPD,v)}</span>`;
+  return `<span class="mono">${lbl(row.kind==="rto"?RTO:RPO,v)}</span>`;
+}
+function agreedCtl(row, final, editable){
+  const cur = final?.[row.k];
+  if(row.k==="overall"){ const ov=overallOf(final); return editable? `<span id="ag-overall">${lvCell(ov)}</span>` : lvCell(ov); }
+  if(!editable){ return valCell(row,cur); }
+  const opts = row.kind==="lv"? LV.map((l,i)=>({v:i,l})) : row.kind==="mtpd"?MTPD : row.kind==="rto"?RTO:RPO;
+  return `<select id="ag-${row.k}" data-ag="${row.k}" style="min-width:120px"><option value="">—</option>${opts.map(o=>`<option value="${o.v}" ${cur===o.v?"selected":""}>${o.l}</option>`).join("")}</select>`;
+}
+function compareView(){
+  const list = apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  if(!compareId || !apps.some(a=>a.id===compareId)) compareId = list.find(a=>a.status!=="open")?.id || list[0]?.id || null;
+  const head = `<div><h2>Compare answers</h2><p class="lede">${me.owner?"Answers stay hidden until you reveal them. Reveal in the meeting, talk through the rows marked Discuss, then record the agreed result.":"Answers appear here once the facilitator reveals them in the meeting."}</p></div>`;
+  if(!list.length) return head+`<div class="panel muted">No applications yet.</div>`;
+  const a = apps.find(x=>x.id===compareId);
+  const picker = `<label class="f" style="max-width:360px">Application<select id="cmp-app" data-act="cmpApp">${list.map(x=>`<option value="${x.id}" ${x.id===compareId?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>`;
+  const rv = reveals[a.id];
+  let body="";
+  if(me.owner){
+    const live = answersFor(a.id);
+    const names = live.map(e=>esc(e.name||"Someone")).join(", ")||"nobody yet";
+    const newer = rv? live.filter(e=>(e.updatedAt||0)>(rv.revealedAt||0)).length : 0;
+    body += `<div class="panel row between"><div><div class="eyebrow">${live.length} answer${live.length===1?"":"s"} in</div><div>${names}</div>${rv&&newer?`<div class="muted" style="font-size:.85rem">${newer} answer${newer>1?"s":""} changed or arrived after the reveal.</div>`:""}</div>
+      <div class="row">${statusPill(a.status)}
+      ${!rv? `<button class="primary" data-act="reveal" ${live.length?"":"disabled"}>Reveal answers to the group</button>` : `<button data-act="reveal">Refresh revealed answers</button><button data-act="reopen">Re-open for answers</button>`}</div></div>`;
+  }
+  if(!rv){ return head+picker+body+`<div class="panel"><h3>${esc(a.name)}: answers hidden</h3><p class="muted" style="margin:0">${me.owner?"Reveal when everyone has submitted. Participants then can't change their answers.":"Your answer is private until the reveal."}</p></div>`; }
+  const entries = rv.entries||[];
+  const editable = me.owner;
+  const rows = compareRows(entries);
+  const final = editable? (a.final||{}) : a.final;
+  body += `<div class="tbl-wrap"><table><thead><tr><th>Dimension</th>${entries.map(e=>`<th>${esc(e.name||"Someone")}<div style="font-weight:400;text-transform:none">${esc(e.role||"")}</div></th>`).join("")}<th>Spread</th><th>Agreed result</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr><td style="${r.bold?"font-weight:700":""}">${r.label}</td>${r.vals.map(v=>`<td class="c">${valCell(r,v)}</td>`).join("")}<td>${gapTxt(gapOf(r))}</td><td>${(final||editable)?agreedCtl(r,final,editable):'<span class="muted">Not agreed yet</span>'}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  if(editable) body += `<div class="panel" style="display:grid;gap:10px"><label class="f">Agreed notes / decisions<textarea id="ag-notes" rows="2">${esc(final?.notes||"")}</textarea></label><div class="row"><button class="primary" data-act="saveFinal">Save agreed result</button>${a.final?.savedAt?`<span class="muted" style="font-size:.85rem">Last saved ${fmtDate(a.final.savedAt)}</span>`:""}</div></div>`;
+  else if(final?.notes) body += `<div class="panel"><div class="eyebrow">Agreed notes</div><p style="margin:4px 0 0">${esc(final.notes)}</p></div>`;
+  const notes = DIMS.map(d=>{const cs=entries.filter(e=>e.comments?.[d.k]).map(e=>`<li><b>${esc(e.name||"Someone")}</b> (${LV[e.ratings?.[d.k]]??"—"}): ${esc(e.comments[d.k])}</li>`); return cs.length?`<div style="display:grid;gap:6px"><h3 style="font-size:.95rem">${d.label}</h3><ul class="comments">${cs.join("")}</ul></div>`:""}).join("")
+    + (entries.some(e=>e.note)? `<div style="display:grid;gap:6px"><h3 style="font-size:.95rem">Other notes</h3><ul class="comments">${entries.filter(e=>e.note).map(e=>`<li><b>${esc(e.name||"Someone")}</b>: ${esc(e.note)}</li>`).join("")}</ul></div>`:"");
+  if(notes) body += `<div class="panel" style="display:grid;gap:14px"><h3>Reasons people gave</h3>${notes}</div>`;
+  return head+picker+body;
+}
+async function doReveal(){
+  const a=apps.find(x=>x.id===compareId); const live=answersFor(a.id);
+  const entries = live.map(e=>({uid:e.uid,name:e.name||"",role:e.role||"",dept:e.dept||"",ratings:e.ratings||{},comments:e.comments||{},mtpd:e.mtpd??null,rto:e.rto??null,rpo:e.rpo??null,note:e.note||""}));
+  try{ await db.doc("reveals/"+a.id).set({appId:a.id,revealedAt:Date.now(),entries});
+    if(a.status==="open") await db.doc("apps/"+a.id).update({status:"revealed"});
+    toast("Answers revealed"); }catch{ toast("Couldn't reveal. Try again."); }
+}
+async function doReopen(){
+  const a=apps.find(x=>x.id===compareId);
+  try{ await db.doc("reveals/"+a.id).delete(); await db.doc("apps/"+a.id).update({status:"open"}); toast("Re-opened for answers"); }catch{ toast("Couldn't re-open. Try again."); }
+}
+async function saveFinal(){
+  const a=apps.find(x=>x.id===compareId); const f={};
+  document.querySelectorAll("[data-ag]").forEach(s=>{ if(s.value!=="") f[s.dataset.ag]=+s.value; });
+  f.notes=($("#ag-notes")?.value||"").trim(); f.savedAt=Date.now(); f.overall=overallOf(f);
+  try{ await db.doc("apps/"+a.id).update({final:f,status:"agreed"}); toast("Agreed result saved"); }catch{ toast("Couldn't save. Try again."); }
+}
+
+/* ----- Results (owner) ----- */
+function allRows(){
+  const rows=[];
+  allResp.forEach(r=>{ Object.entries(r.data.answers||{}).forEach(([appId,ans])=>{
+    const a=apps.find(x=>x.id===appId); if(!a||!ans.submittedAt) return;
+    rows.push({appId,app:a.name,area:a.area||"",status:a.status||"open",name:ans.name||"",role:ans.role||"",dept:ans.dept||"",r:ans.ratings||{},overall:overallOf(ans.ratings),mtpd:ans.mtpd,rto:ans.rto,rpo:ans.rpo,note:ans.note||"",submittedAt:ans.submittedAt});
+  });});
+  return rows.sort((x,y)=>x.app.localeCompare(y.app)||x.name.localeCompare(y.name));
+}
+function filtered(){
+  return allRows().filter(x=>(!filt.app||x.appId===filt.app)&&(!filt.area||x.area===filt.area)&&(!filt.role||x.role===filt.role)&&(filt.level===""||x.overall===+filt.level)&&(!filt.status||x.status===filt.status));
+}
+function filteredApps(){
+  return apps.filter(a=>(!filt.app||a.id===filt.app)&&(!filt.area||(a.area||"")===filt.area)&&(!filt.status||(a.status||"open")===filt.status)&&(filt.level===""||a.final?.overall===+filt.level)).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+}
+function sel(id,key,opts,all){return `<label class="f">${all}<select id="${id}" data-filt="${key}"><option value="">All</option>${opts.map(o=>`<option value="${esc(o[0])}" ${String(filt[key])===String(o[0])?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>`}
+function resultsView(){
+  const areas=[...new Set(apps.map(a=>a.area).filter(Boolean))].sort();
+  const roles=[...new Set(allRows().map(r=>r.role).filter(Boolean))].sort();
+  const fa=filteredApps(), fr=filtered();
+  const agreed=fa.filter(a=>a.final?.savedAt);
+  const counts=[0,1,2].map(i=>agreed.filter(a=>a.final.overall===i).length);
+  return `<div class="row between"><div><h2>All results</h2><p class="lede">Agreed results per application, and every individual answer behind them.</p></div>
+    <button class="primary" data-act="export">Export to Excel</button></div>
+  <div class="panel grid2">
+    ${sel("fl-app","app",apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(a=>[a.id,a.name]),"Application")}
+    ${sel("fl-area","area",areas.map(a=>[a,a]),"Business area")}
+    ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
+    ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
+    ${sel("fl-role","role",roles.map(r=>[r,r]),"Participant role")}
+  </div>
+  <div class="row" style="gap:20px"><span><b class="mono">${fa.length}</b> <span class="muted">applications</span></span><span><b class="mono">${agreed.length}</b> <span class="muted">agreed</span></span>${counts.map((n,i)=>`<span class="cell lv${i}">${n} ${LV[i]}</span>`).join("")}<span><b class="mono">${fr.length}</b> <span class="muted">individual answers</span></span></div>
+  <h3>Agreed results</h3>
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Status</th><th>Answers</th>${DIMS.map(d=>`<th>${d.label.replace(" impact","")}</th>`).join("")}<th>Overall</th><th>MTPD</th><th>RTO</th><th>RPO</th></tr></thead><tbody>
+  ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td>${DIMS.map(d=>`<td>${f.savedAt?lvCell(f[d.k]):""}</td>`).join("")}<td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td></tr>`}).join("") : `<tr><td colspan="14" class="muted">No applications match these filters.</td></tr>`}
+  </tbody></table></div>
+  <h3>Individual answers</h3>
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Participant</th><th>Role</th><th>Department</th>${DIMS.map(d=>`<th>${d.label.replace(" impact","")}</th>`).join("")}<th>Overall</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Submitted</th></tr></thead><tbody>
+  ${fr.length? fr.map(x=>`<tr><td>${esc(x.app)}</td><td>${esc(x.name)}</td><td>${esc(x.role)}</td><td>${esc(x.dept)}</td>${DIMS.map(d=>`<td>${lvCell(x.r[d.k])}</td>`).join("")}<td>${lvCell(x.overall)}</td><td class="mono">${lbl(MTPD,x.mtpd)}</td><td class="mono">${lbl(RTO,x.rto)}</td><td class="mono">${x.rpo!=null?lbl(RPO,x.rpo):"—"}</td><td class="mono">${fmtDate(x.submittedAt)}</td></tr>`).join("") : `<tr><td colspan="14" class="muted">No answers match these filters yet.</td></tr>`}
+  </tbody></table></div>`;
+}
+async function exportXlsx(){
+  if(!window.XLSX){toast("The Excel library didn't load. Reload the page and try again.");return}
+  const lvN=v=>v==null?"":LV[v];
+  const s1=filteredApps().map(a=>{const f=a.final||{};const o={"Application":a.name,"Business area":a.area||"","Responsible":a.owner||"","Session date":a.sessionDate||"","Status":a.status||"open","Answers":countFor(a.id)};
+    DIMS.forEach(d=>o[d.label]=f.savedAt?lvN(f[d.k]):""); o["Overall criticality"]=f.savedAt?lvN(f.overall):""; o["MTPD"]=f.mtpd!=null?lbl(MTPD,f.mtpd):""; o["RTO"]=f.rto!=null?lbl(RTO,f.rto):""; o["RPO"]=f.rpo!=null?lbl(RPO,f.rpo):""; o["Agreed notes"]=f.notes||""; o["Agreed on"]=f.savedAt?new Date(f.savedAt).toISOString().slice(0,10):""; return o;});
+  const s2=filtered().map(x=>{const o={"Application":x.app,"Business area":x.area,"Participant":x.name,"Role":x.role,"Department":x.dept};
+    DIMS.forEach(d=>o[d.label]=lvN(x.r[d.k])); o["Overall criticality"]=lvN(x.overall); o["MTPD"]=lbl(MTPD,x.mtpd); o["RTO"]=lbl(RTO,x.rto); o["RPO"]=x.rpo!=null?lbl(RPO,x.rpo):""; o["Notes"]=x.note; o["Submitted"]=new Date(x.submittedAt).toISOString().slice(0,10); return o;});
+  const wb=XLSX.utils.book_new();
+  const mk=(rows)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{"(no rows)":""}]); const keys=Object.keys(rows[0]||{}); ws["!cols"]=keys.map(k=>({wch:Math.min(40,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)})); return ws;};
+  XLSX.utils.book_append_sheet(wb,mk(s1),"Agreed results");
+  XLSX.utils.book_append_sheet(wb,mk(s2),"Individual answers");
+  const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+  const dl=await claude.use("downloads");
+  if(!dl){toast("Downloads aren't available in this view.");return}
+  try{ await dl.save({filename:`app-criticality-${new Date().toISOString().slice(0,10)}.xlsx`,data:buf}); toast("Excel file saved"); }
+  catch(e){ if(e?.code!=="declined") toast("Couldn't save the file."); }
+}
+
+/* ----- Applications (owner) ----- */
+function appsView(){
+  const list=apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  return `<div><h2>Applications</h2><p class="lede">Add each application before its session, then share this page with that session's participants.</p></div>
+  <ol class="how"><li>Add the application here.</li><li>Share the page with participants (Share → invite as Contributor; outside your organization, as Editor).</li><li>Each person rates it alone under Assess.</li><li>In the meeting, open Compare, reveal, discuss and save the agreed result.</li></ol>
+  <form class="panel" id="addf" style="display:grid;gap:12px"><h3>Add an application</h3>
+    <div class="grid2">
+      <label class="f">Application name<input id="n-name" name="name" required placeholder="e.g. Amber"></label>
+      <label class="f">Business area<input id="n-area" name="area" placeholder="e.g. Finance" list="areas"></label>
+      <label class="f">Responsible (business owner)<input id="n-owner" name="owner"></label>
+      <label class="f">Session date<input id="n-date" name="sessionDate" type="date"></label>
+    </div>
+    <datalist id="areas">${[...new Set(apps.map(a=>a.area).filter(Boolean))].map(a=>`<option value="${esc(a)}">`).join("")}</datalist>
+    <div><button class="primary" type="submit">Add application</button></div>
+  </form>
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Session</th><th>Answers</th><th>Status</th><th></th></tr></thead><tbody>
+  ${list.length? list.map(a=>`<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td class="mono">${esc(a.sessionDate||"—")}</td><td class="mono c">${countFor(a.id)}</td><td>${statusPill(a.status)}</td>
+    <td>${confirmDel===a.id? `<span class="confirm">Delete ${esc(a.name)} and its revealed answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></span>` : `<div class="row" style="gap:6px;flex-wrap:nowrap"><button class="small" data-act="goCompare" data-id="${a.id}">Compare</button><button class="small danger" data-act="del" data-id="${a.id}">Delete</button></div>`}</td></tr>`).join("") : `<tr><td colspan="7" class="muted">No applications yet. Add the first one above.</td></tr>`}
+  </tbody></table></div>`;
+}
+async function addApp(e){
+  e.preventDefault(); const fd=new FormData(e.target); const name=(fd.get("name")||"").trim(); if(!name) return;
+  try{ await db.doc("apps/"+slug(name)).set({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),sessionDate:fd.get("sessionDate")||"",status:"open",createdAt:Date.now()}); toast(`${name} added`); }
+  catch{ toast("Couldn't add the application. Try again."); }
+}
+async function delApp(id){
+  confirmDel=null;
+  try{ await db.doc("apps/"+id).delete(); await db.doc("reveals/"+id).delete(); toast("Application deleted"); }catch{ toast("Couldn't delete. Try again."); }
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return; const act=b.dataset.act, id=b.dataset.id;
+  if(act==="openApp"){openAppId=id;draft=null;render();scrollTo(0,0)}
+  else if(act==="back"){openAppId=null;draft=null;render()}
+  else if(act==="reveal") doReveal();
+  else if(act==="reopen") doReopen();
+  else if(act==="saveFinal") saveFinal();
+  else if(act==="export") exportXlsx();
+  else if(act==="goCompare"){compareId=id;location.hash="compare"}
+  else if(act==="del"){confirmDel=id;render()}
+  else if(act==="delNo"){confirmDel=null;render()}
+  else if(act==="delYes") delApp(id);
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="cmp-app"){compareId=t.value;render()}
+  else if(t.dataset.filt){filt[t.dataset.filt]=t.value;render()}
+  else if(t.dataset.ag==="__"){}
+  else if(t.dataset.ag){ const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
+  if(t.closest("#af")){readForm();updateSummary()}
+});
+document.addEventListener("input",e=>{ if(e.target.closest("#af")) readForm(); });
+document.addEventListener("submit",e=>{ if(e.target.id==="af") submitForm(e); else if(e.target.id==="addf") addApp(e); });
+
+/* ---------- boot ---------- */
+(async()=>{
+  route();
+  if(!window.claude?.use){ $("#main").innerHTML=`<div class="panel"><h3>Open this page in Claude</h3><p class="muted">The shared assessment store only works inside claude.ai.</p></div>`; return; }
+  [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
+  if(!db){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Sign in to claude.ai with the account the facilitator invited, then reload this page.</p></div>`; return; }
+  if(user){ me.id=await user.id(); me.owner=!!(await user.isOwner()); try{ me.name=(await user.name())||""; }catch{} }
+  if(!me.id){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Your answers are tied to your claude.ai account.</p></div>`; return; }
+  const slow=setTimeout(()=>{ if(!ready.apps){ $("#main").insertAdjacentHTML("afterbegin",`<div class="banner warn">The assessment store isn't answering yet. Data may be missing or out of date.</div>`);} },10000);
+  const onErr=()=>toast("Lost connection to the store. Reload the page to reconnect.");
+  db.collection("apps").onSnapshot(s=>{ apps=s.docs.map(d=>({id:d.id,...d.data()})); if(!s.metadata.fromCache){ready.apps=true;clearTimeout(slow)} if(!document.activeElement?.closest?.("#af,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  db.collection("reveals").onSnapshot(s=>{ reveals={}; s.docs.forEach(d=>reveals[d.id]=d.data()); if(!document.activeElement?.closest?.("#af,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  db.doc("responses/"+me.id).onSnapshot(s=>{ myDoc=s.exists? s.data():null; if(!openAppId) render(); },()=>{});
+  if(me.owner) db.collection("responses").onSnapshot(s=>{ allResp=s.docs.map(d=>({id:d.id,data:d.data()})); if(!document.activeElement?.closest?.("#af,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  render();
+})();
+</script>
