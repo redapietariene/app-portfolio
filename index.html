@@ -113,6 +113,59 @@ td.c{text-align:center}
 .how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
 .how li{counter-increment:s;padding:12px 14px;border-radius:8px;background:var(--sunk);font-size:.88rem}
 .how li::before{content:"Step " counter(s);display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:2px}
+/* assessment wizard */
+.wiz{display:grid;gap:18px;max-width:640px;width:100%;margin:0 auto}
+.prog{display:flex;gap:6px}
+.seg{flex:1;height:8px;padding:0;border-radius:99px;border:0;background:var(--line)}
+.seg.filled{background:var(--accent)}
+.seg.cur{outline:2px solid var(--accent);outline-offset:2px}
+.seg:hover{background:var(--muted)}.seg.filled:hover{background:var(--accent)}
+.q{display:grid;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px 24px}
+.q.anim{animation:pop .28s ease-out}
+.q h2{font-size:clamp(1.45rem,4.5vw,1.9rem);line-height:1.2}
+.q .hl{color:var(--accent)}
+.q .hint{margin:-6px 0 0}
+@keyframes pop{from{transform:translateY(10px) scale(.99);opacity:.35}to{transform:none;opacity:1}}
+.picks{display:grid;gap:10px}
+.pick{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;padding:14px 16px;border-radius:14px;border:2px solid var(--line);background:var(--surface);font-weight:400;transition:transform .12s, border-color .12s, background .12s}
+.pick:hover{transform:translateY(-2px);background:var(--surface)}
+.pick .pt{display:grid;gap:1px;min-width:0}
+.pick b{font-family:var(--f-display);font-size:1.05rem}
+.pick kbd{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+.pick.l0 b{color:var(--low)}.pick.l1 b{color:var(--med)}.pick.l2 b{color:var(--crit)}
+.pick.l0:hover,.pick.l0.on{border-color:var(--low)}.pick.l0.on{background:var(--low-soft)}
+.pick.l1:hover,.pick.l1.on{border-color:var(--med)}.pick.l1.on{background:var(--med-soft)}
+.pick.l2:hover,.pick.l2.on{border-color:var(--crit)}.pick.l2.on{background:var(--crit-soft)}
+.pick.on{transform:scale(1.02)}
+.bars{display:inline-flex;align-items:flex-end;gap:3px;height:26px}
+.bars i{display:block;width:7px;border-radius:2px;background:var(--line)}
+.bars i:nth-child(1){height:9px}.bars i:nth-child(2){height:17px}.bars i:nth-child(3){height:26px}
+.l0 .bars i.on,.lv0 .bars i.on{background:var(--low)}.l1 .bars i.on,.lv1 .bars i.on{background:var(--med)}.l2 .bars i.on,.lv2 .bars i.on{background:var(--crit)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.tile{display:grid;gap:2px;place-items:center;padding:18px 10px;border-radius:14px;border:2px solid var(--line);background:var(--surface);transition:transform .12s, border-color .12s}
+.tile b{font-family:var(--f-display);font-size:1.2rem}
+.tile small{color:var(--muted);font-weight:500;font-size:.75rem}
+.tile:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--surface)}
+.tile.on{border-color:var(--accent);background:var(--accent-soft);transform:scale(1.03)}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+button.ghost:hover{color:var(--fg);background:var(--sunk)}
+.big-btn{padding:13px 22px;font-size:1rem;border-radius:12px;width:100%}
+.intro{text-align:left;gap:16px;padding-block:36px}
+.verdict{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:14px;background:var(--sunk)}
+.verdict span{color:var(--muted);font-weight:600;flex:1}
+.verdict b{font-family:var(--f-display);font-size:1.5rem}
+.verdict.lv0 b{color:var(--low)}.verdict.lv1 b{color:var(--med)}.verdict.lv2 b{color:var(--crit)}
+.recap{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:6px}
+.rc{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:.85rem;text-align:left}
+.rc span{color:var(--muted)}
+.rc b{font-size:.8rem;min-width:0}
+.rc .cell{min-width:0}
+.done{text-align:center;justify-items:center;padding-block:40px}
+.tick{width:72px;height:72px}
+.tick circle{fill:var(--low-soft);stroke:var(--low);stroke-width:3}
+.tick path{fill:none;stroke:var(--low);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:0;animation:draw .5s .1s ease-out backwards}
+@keyframes draw{from{stroke-dashoffset:48}}
+@media (max-width:640px){.q{padding:22px 16px}.pick kbd{display:none}}
 @media (max-width:640px){.opts{grid-template-columns:1fr}.panel{padding:16px}.sticky-foot{margin:0 -16px -16px;padding-inline:16px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -130,11 +183,11 @@ td.c{text-align:center}
 /* ---------- reference data (from the assessment form) ---------- */
 const LV = ["Low","Medium","Critical"];
 const DIMS = [
-  {k:"ops", label:"Business operations impact", d:["Minor disruption; business continues normally","Main processes disrupted; business operates with limitations","Critical processes stopped; business operations severely affected"]},
-  {k:"cust",label:"Customers affected", d:["Few individual customers, not VIP","Significant customer group","Most or all customers"]},
-  {k:"fin", label:"Financial impact", d:["Minor financial loss","Noticeable financial loss","Significant financial loss"]},
-  {k:"legal",label:"Legal / compliance impact", d:["No significant consequences","Minor legal or compliance issues","Serious legal or regulatory consequences"]},
-  {k:"rep", label:"Reputation impact", d:["Minor or no complaints","Significant customer complaints","Major reputational damage or negative media coverage"]}
+  {k:"ops", label:"Business operations impact", q:"How hard would daily work be hit?", d:["Minor disruption, work goes on","Main processes disrupted","Critical processes stop"]},
+  {k:"cust",label:"Customers affected", q:"How many customers would notice?", d:["A few, not VIP","A significant group","Most or all of them"]},
+  {k:"fin", label:"Financial impact", q:"How much money could we lose?", d:["A minor loss","A noticeable loss","A significant loss"]},
+  {k:"legal",label:"Legal / compliance impact", q:"Any legal or compliance trouble?", d:["Nothing significant","Minor issues","Serious regulatory consequences"]},
+  {k:"rep", label:"Reputation impact", q:"What would it do to our reputation?", d:["Few or no complaints","Lots of complaints","Damage and bad press"]}
 ];
 const MTPD = [{v:2,l:"2 hours",t:"Low tolerance"},{v:8,l:"8 hours",t:"Medium tolerance"},{v:24,l:"24 hours",t:"High tolerance"},{v:72,l:"More than 24 h",t:"Very high tolerance"}];
 const RTO  = [{v:1,l:"1 hour"},{v:2,l:"2 hours"},{v:4,l:"4 hours"},{v:8,l:"8 hours"},{v:24,l:"24 hours"},{v:72,l:"3 days"}];
@@ -180,7 +233,6 @@ function render(){
   else if(view==="compare") m.innerHTML = compareView();
   else if(view==="results") m.innerHTML = resultsView();
   else if(view==="apps") m.innerHTML = appsView();
-  if(view==="assess" && openAppId) updateSummary();
 }
 
 /* ----- Assess: list ----- */
@@ -200,76 +252,80 @@ function assessList(){
     </button>`}).join("")}</div>`;
 }
 
-/* ----- Assess: form ----- */
+/* ----- Assess: one question per card ----- */
+const STEPS=[...DIMS.map(d=>({k:d.k,type:"lv"})),{k:"mtpd",type:"time"},{k:"rto",type:"time"},{k:"rpo",type:"time"},{k:"review"}];
+const TIMEQ={
+  mtpd:{q:"How long can the business live without it?",hint:"After this long, real damage starts.",arr:MTPD},
+  rto:{q:"How fast must it be back up?",hint:"Usually a bit sooner than the time you can live without it.",arr:RTO},
+  rpo:{q:"How much recent work could you afford to lose?",hint:"Anything entered after the last backup would need redoing.",arr:RPO}
+};
+let step=0, justDone=false, advT=null, shownStep=null;
+const bars=n=>`<span class="bars" aria-hidden="true">${[0,1,2].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`;
+function valueOf(k){ return k==="mtpd"||k==="rto"||k==="rpo"? draft[k] : draft.ratings?.[k]; }
+function answerLabel(st){ const v=valueOf(st.k); if(v==null) return null; return st.type==="lv"? LV[v] : lbl(TIMEQ[st.k].arr,v); }
 function assessForm(){
   const a = apps.find(x=>x.id===openAppId);
   if(!a){openAppId=null;return assessList()}
   const saved = myDoc?.answers?.[a.id];
   if(!draft) draft = JSON.parse(JSON.stringify(saved||{ratings:{},name:myDoc?.name||me.name||""}));
   const locked = a.status!=="open";
-  const dis = locked? "disabled":"";
-  const r=draft.ratings||{};
-  return `<div class="row"><button class="small" data-act="back">← All applications</button></div>
-  <div><div class="eyebrow">Impact assessment</div><h2>${esc(a.name)}</h2>
-  <p class="lede">${esc(a.area||"")}${a.owner?` · Responsible: ${esc(a.owner)}`:""}</p></div>
-  ${locked? `<div class="banner warn">Answers for this application are closed (${a.status==="agreed"?"result agreed":"answers revealed"}). You can see the group comparison under <a href="#compare">Compare</a>.</div>`:""}
-  <form class="panel" id="af" style="display:grid;gap:4px">
-    <div style="padding-bottom:12px;max-width:360px">
-      <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" required ${dis}></label>
-    </div>
-    <h3 style="padding-top:8px">What would be the impact if the application became unavailable?</h3>
-    ${DIMS.map(d=>`<fieldset class="dim" style="border-inline:0;border-bottom:0;margin:0;padding-inline:0"><legend class="eyebrow" style="float:left;width:100%;padding:0;font-size:.8rem;color:var(--fg)">${d.label}</legend>
-      <div class="opts">${d.d.map((t,i)=>`<label class="opt l${i}"><input type="radio" id="r-${d.k}-${i}" name="r-${d.k}" value="${i}" ${r[d.k]===i?"checked":""} ${dis}><span><b>${LV[i]}</b>${t}</span></label>`).join("")}</div>
-    </fieldset>`).join("")}
-    <div class="dim"><h3>How long can the business tolerate the outage before impact occurs?</h3>
-      <p class="muted" style="margin:0;font-size:.88rem">MTPD, the maximum tolerable period of disruption.</p>
-      <div class="chips">${MTPD.map(o=>`<label class="chip"><input type="radio" id="m-${o.v}" name="mtpd" value="${o.v}" ${draft.mtpd===o.v?"checked":""} ${dis}><span>${o.l}<small>${o.t}</small></span></label>`).join("")}</div>
-    </div>
-    <div class="dim"><h3>How fast must the application be back? (RTO)</h3>
-      <p class="muted" style="margin:0;font-size:.88rem">Recovery Time Objective. Usually shorter than the MTPD, to leave time for catching up.</p>
-      <div class="chips">${RTO.map(o=>`<label class="chip"><input type="radio" id="t-${o.v}" name="rto" value="${o.v}" ${draft.rto===o.v?"checked":""} ${dis}><span>${o.l}</span></label>`).join("")}</div>
-      <p id="rtoWarn" class="banner warn" hidden style="margin:0"></p>
-    </div>
-    <div class="dim"><h3>How much recent data could you afford to lose? (RPO)</h3>
-      <p class="muted" style="margin:0;font-size:.88rem">Recovery Point Objective. Work done after the last backup would have to be re-entered.</p>
-      <div class="chips">${RPO.map(o=>`<label class="chip"><input type="radio" id="p-${o.v}" name="rpo" value="${o.v}" ${draft.rpo===o.v?"checked":""} ${dis}><span>${o.l}</span></label>`).join("")}</div>
-    </div>
-    <div class="dim"><label class="f">Anything else the group should know?<textarea id="f-note" name="note" rows="2" ${dis}>${esc(draft.note||"")}</textarea></label></div>
-    <div class="sticky-foot row between">
-      <div id="sum" class="muted"></div>
-      ${locked?"":`<button class="primary" type="submit">${saved?"Update my answers":"Submit my answers"}</button>`}
-    </div>
-  </form>`;
+  const top = `<div class="row between"><button class="small ghost" data-act="back">← Applications</button><span class="eyebrow">${esc(a.name)}</span></div>`;
+  if(justDone) return top+`<section class="wiz" id="wiz"><div class="q done">
+      <svg class="tick" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M19 33l9 9 17-19"/></svg>
+      <h2>Thanks, you're done!</h2><p class="muted">Your answers for <b>${esc(a.name)}</b> stay sealed until the reveal in the meeting.</p>
+      <div class="row" style="justify-content:center"><button class="primary" data-act="back">Rate another application</button></div></div></section>`;
+  if(locked) step=STEPS.length-1;
+  const total=STEPS.length-1;
+  if(step===-1) return top+`<section class="wiz" id="wiz"><div class="q intro">
+      <div class="eyebrow">Impact check</div><h2>What if <span class="hl">${esc(a.name)}</span> stopped working?</h2>
+      <p class="muted">8 quick taps, about two minutes. Go with your gut, there are no wrong answers. Nobody sees your picks until the meeting.</p>
+      <div><button class="primary big-btn" data-act="go" data-step="0">Let's start</button></div></div></section>`;
+  const st=STEPS[step];
+  const prog = `<div class="prog" aria-label="Question ${Math.min(step+1,total)} of ${total}">${STEPS.slice(0,total).map((x,i)=>`<button class="seg ${valueOf(x.k)!=null?"filled":""} ${i===step?"cur":""}" data-act="go" data-step="${i}" aria-label="Question ${i+1}" ${locked?"disabled":""}></button>`).join("")}</div>`;
+  let body="";
+  if(st.type==="lv"){
+    const d=DIMS.find(x=>x.k===st.k); const cur=draft.ratings?.[st.k];
+    body=`<div class="eyebrow">${step+1} of ${total} · ${d.label}</div><h2>${d.q}</h2>
+      <div class="picks">${d.d.map((t,i)=>`<button class="pick l${i} ${cur===i?"on":""}" data-act="pick" data-k="${st.k}" data-v="${i}" aria-pressed="${cur===i}">${bars(i)}<span class="pt"><b>${LV[i]}</b><span>${t}</span></span><kbd>${i+1}</kbd></button>`).join("")}</div>`;
+  } else if(st.type==="time"){
+    const t=TIMEQ[st.k]; const cur=draft[st.k];
+    body=`<div class="eyebrow">${step+1} of ${total}</div><h2>${t.q}</h2><p class="muted hint">${t.hint}</p>
+      <div class="tiles">${t.arr.map((o,i)=>`<button class="tile ${cur===o.v?"on":""}" data-act="pick" data-k="${st.k}" data-v="${o.v}" aria-pressed="${cur===o.v}"><b>${o.l}</b>${o.t?`<small>${o.t}</small>`:""}</button>`).join("")}</div>`;
+  } else {
+    const ov=overallOf(draft.ratings);
+    const bad = draft.rto!=null && draft.mtpd!=null && draft.mtpd!==72 && draft.rto>draft.mtpd;
+    const missing = STEPS.slice(0,total).filter(x=>valueOf(x.k)==null && x.k!=="rpo");
+    body=`<div class="eyebrow">${locked?"Your answers":"Last step"}</div>
+      <div class="verdict ${ov==null?"":"lv"+ov}"><span>${ov==null?"Not rated yet":"Your verdict"}</span><b>${ov==null?"—":LV[ov]}</b>${ov==null?"":bars(ov)}</div>
+      <div class="recap">${STEPS.slice(0,total).map((x,i)=>{const v=answerLabel(x); const lvv=x.type==="lv"?valueOf(x.k):x.k==="mtpd"?mtpdLevel(draft.mtpd):null;
+        return `<button class="rc" data-act="go" data-step="${i}" ${locked?"disabled":""}><span>${x.type==="lv"?DIMS.find(d=>d.k===x.k).label.replace(" impact",""):x.k.toUpperCase()}</span>${v?`<b class="${lvv!=null?"cell lv"+lvv:"mono"}">${v}</b>`:`<b class="muted">Tap to answer</b>`}</button>`}).join("")}</div>
+      ${bad?`<p class="banner warn" style="margin:0">Recovery (${lbl(RTO,draft.rto)}) is slower than the time the business can manage without it (${lbl(MTPD,draft.mtpd)}). Worth a second look?</p>`:""}
+      <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" ${locked?"disabled":""}></label>
+      <label class="f">Anything else? <span style="font-weight:400">(optional)</span><textarea id="f-note" name="note" rows="2" ${locked?"disabled":""}>${esc(draft.note||"")}</textarea></label>
+      ${locked? `<p class="banner warn" style="margin:0">Answers are closed. See the group comparison under <a href="#compare">Compare</a>.</p>`
+        : `<button class="primary big-btn" data-act="submit" ${missing.length?"disabled":""}>${missing.length?`${missing.length} question${missing.length>1?"s":""} left`:saved?"Update my answers":"Send my answers"}</button>`}`;
+  }
+  const nav = st.type==="review"||locked? (locked?"":`<div class="row between"><button class="small ghost" data-act="go" data-step="${step-1}">← Back</button><span></span></div>`)
+    : `<div class="row between"><button class="small ghost" data-act="go" data-step="${step-1}" ${step===0?"disabled":""}>← Back</button><button class="small ghost" data-act="go" data-step="${step+1}">${valueOf(st.k)!=null||st.k==="rpo"?"Next →":"Skip →"}</button></div>`;
+  const anim = shownStep!==step; shownStep=step;
+  return top+`<section class="wiz" id="wiz">${locked?"":prog}<div class="q ${anim?"anim":""}" id="q-${st.k}">${body}</div>${nav}</section>`;
 }
-function readForm(){
-  const f=$("#af"); if(!f) return;
-  const fd=new FormData(f);
-  draft.name=fd.get("name")||""; draft.note=fd.get("note")||"";
-  draft.ratings={};
-  DIMS.forEach(d=>{const v=fd.get("r-"+d.k); if(v!=null) draft.ratings[d.k]=+v;});
-  ["mtpd","rto","rpo"].forEach(k=>{const v=fd.get(k); draft[k]= v==null?null:+v;});
+function goStep(n){ clearTimeout(advT); step=Math.max(0,Math.min(STEPS.length-1,n)); render(); }
+function pick(k,v){
+  if(k==="mtpd"||k==="rto"||k==="rpo") draft[k]=v; else draft.ratings={...draft.ratings,[k]:v};
+  render(); clearTimeout(advT); advT=setTimeout(()=>goStep(step+1),320);
 }
-function updateSummary(){
-  const s=$("#sum"); if(!s) return;
-  const ov=overallOf(draft.ratings); const n=DIMS.filter(d=>draft.ratings?.[d.k]!=null).length;
-  s.innerHTML = ov==null? `${n} of 5 impact areas rated` : `Your overall criticality: <span class="summary-lv cell lv${ov}">${LV[ov]}</span> <span style="font-size:.8rem">(highest of ${n}/5 rated areas)</span>`;
-  const w=$("#rtoWarn"); if(w){ const bad = draft.rto!=null && draft.mtpd!=null && draft.rto>draft.mtpd && draft.mtpd!==72;
-    w.hidden=!bad; if(bad) w.textContent=`RTO (${lbl(RTO,draft.rto)}) is longer than the tolerable outage (${lbl(MTPD,draft.mtpd)}). The business would feel the impact before recovery.`; }
-}
-async function submitForm(e){
-  e.preventDefault(); readForm();
-  const missing=[]; if(!draft.name.trim()) missing.push("your name");
-  DIMS.forEach(d=>{if(draft.ratings[d.k]==null) missing.push(d.label.toLowerCase())});
-  if(draft.mtpd==null) missing.push("tolerable outage (MTPD)"); if(draft.rto==null) missing.push("RTO");
-  if(missing.length){toast("Please answer: "+missing.slice(0,3).join(", ")+(missing.length>3?"…":""));return}
+function updateSummary(){}
+async function submitForm(){
+  const nm=$("#f-name"); if(nm) draft.name=nm.value; const nt=$("#f-note"); if(nt) draft.note=nt.value;
+  if(!draft.name.trim()){toast("Add your name so the group knows whose answer it is");nm?.focus();return}
   const now=Date.now(); const prev=myDoc?.answers?.[openAppId];
-  const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd,rto:draft.rto,rpo:draft.rpo,note:draft.note.trim(),submittedAt:prev?.submittedAt||now,updatedAt:now};
-  const btn=e.submitter; if(btn) btn.disabled=true;
+  const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd??null,rto:draft.rto??null,rpo:draft.rpo??null,note:(draft.note||"").trim(),submittedAt:prev?.submittedAt||now,updatedAt:now};
+  const btn=document.querySelector('[data-act="submit"]'); if(btn) btn.disabled=true;
   try{
-    const ref=db.doc("responses/"+me.id);
     const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
-    await ref.set({name:ans.name,updatedAt:now,answers});
-    toast(prev?"Answers updated":"Answers submitted"); draft=null; openAppId=null; render();
+    await db.doc("responses/"+me.id).set({name:ans.name,updatedAt:now,answers});
+    justDone=true; render();
   }catch(err){ toast(err?.code==="invalid_argument"?"You don't have permission to answer here. Ask the facilitator to give you Contributor or Editor access.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
 }
 
@@ -442,8 +498,11 @@ async function delApp(id){
 /* ---------- events ---------- */
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]"); if(!b) return; const act=b.dataset.act, id=b.dataset.id;
-  if(act==="openApp"){openAppId=id;draft=null;render();scrollTo(0,0)}
-  else if(act==="back"){openAppId=null;draft=null;render()}
+  if(act==="openApp"){openAppId=id;draft=null;justDone=false;const sv=myDoc?.answers?.[id];step=sv?STEPS.length-1:-1;shownStep=null;render();scrollTo(0,0)}
+  else if(act==="go") goStep(+b.dataset.step);
+  else if(act==="pick") pick(b.dataset.k,+b.dataset.v);
+  else if(act==="submit") submitForm();
+  else if(act==="back"){openAppId=null;draft=null;justDone=false;clearTimeout(advT);render()}
   else if(act==="reveal") doReveal();
   else if(act==="reopen") doReopen();
   else if(act==="saveFinal") saveFinal();
@@ -459,10 +518,16 @@ document.addEventListener("change",e=>{
   else if(t.dataset.filt){filt[t.dataset.filt]=t.value;render()}
   else if(t.dataset.ag==="__"){}
   else if(t.dataset.ag){ const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
-  if(t.closest("#af")){readForm();updateSummary()}
 });
-document.addEventListener("input",e=>{ if(e.target.closest("#af")) readForm(); });
-document.addEventListener("submit",e=>{ if(e.target.id==="af") submitForm(e); else if(e.target.id==="addf") addApp(e); });
+document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name") draft.name=e.target.value; if(e.target.id==="f-note") draft.note=e.target.value; });
+document.addEventListener("keydown",e=>{
+  if(view!=="assess"||!openAppId||justDone||e.target.closest("input,textarea,select")||e.metaKey||e.ctrlKey) return;
+  const st=STEPS[step]; if(!st||st.k==="review") return;
+  const n=parseInt(e.key,10); const opts=st.type==="lv"?[0,1,2]:TIMEQ[st.k].arr.map(o=>o.v);
+  if(n>=1&&n<=opts.length){e.preventDefault();pick(st.k,opts[n-1]);}
+  else if(e.key==="ArrowLeft"&&step>0) goStep(step-1); else if(e.key==="ArrowRight") goStep(step+1);
+});
+document.addEventListener("submit",e=>{ if(e.target.id==="addf") addApp(e); });
 
 /* ---------- boot ---------- */
 (async()=>{
@@ -474,10 +539,10 @@ document.addEventListener("submit",e=>{ if(e.target.id==="af") submitForm(e); el
   if(!me.id){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Your answers are tied to your claude.ai account.</p></div>`; return; }
   const slow=setTimeout(()=>{ if(!ready.apps){ $("#main").insertAdjacentHTML("afterbegin",`<div class="banner warn">The assessment store isn't answering yet. Data may be missing or out of date.</div>`);} },10000);
   const onErr=()=>toast("Lost connection to the store. Reload the page to reconnect.");
-  db.collection("apps").onSnapshot(s=>{ apps=s.docs.map(d=>({id:d.id,...d.data()})); if(!s.metadata.fromCache){ready.apps=true;clearTimeout(slow)} if(!document.activeElement?.closest?.("#af,#addf,[data-ag],#ag-notes")) render(); },onErr);
-  db.collection("reveals").onSnapshot(s=>{ reveals={}; s.docs.forEach(d=>reveals[d.id]=d.data()); if(!document.activeElement?.closest?.("#af,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  db.collection("apps").onSnapshot(s=>{ apps=s.docs.map(d=>({id:d.id,...d.data()})); if(!s.metadata.fromCache){ready.apps=true;clearTimeout(slow)} if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  db.collection("reveals").onSnapshot(s=>{ reveals={}; s.docs.forEach(d=>reveals[d.id]=d.data()); if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
   db.doc("responses/"+me.id).onSnapshot(s=>{ myDoc=s.exists? s.data():null; if(!openAppId) render(); },()=>{});
-  if(me.owner) db.collection("responses").onSnapshot(s=>{ allResp=s.docs.map(d=>({id:d.id,data:d.data()})); if(!document.activeElement?.closest?.("#af,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  if(me.owner) db.collection("responses").onSnapshot(s=>{ allResp=s.docs.map(d=>({id:d.id,data:d.data()})); if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
   render();
 })();
 </script>

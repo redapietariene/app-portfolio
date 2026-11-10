@@ -22,7 +22,7 @@ Participants enter only their name, the ratings and an optional note.
 
 ## Views
 
-- **Assess** – participants pick an application and submit their answers (editable until the reveal).
+- **Assess** – participants pick an application and answer one question per card (8 taps, auto-advance, keys 1–4 work too), then review and send. Answers can be changed until the reveal.
 - **Compare** – facilitator reveals answers; a side-by-side grid marks each row *Aligned*, *Differs* or *Discuss*; the facilitator sets the agreed values and notes.
 - **Results** (facilitator) – all applications and all individual answers in one place, filterable by application, business area, status and criticality.
 - **Applications** (facilitator) – add / delete applications, see answer counts and status.
