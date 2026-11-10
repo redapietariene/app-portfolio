@@ -18,7 +18,7 @@ Each participant rates an application **on their own** — nobody sees the other
 | RTO – recovery time objective | 1 h … 3 days (warns if longer than MTPD) |
 | RPO – recovery point objective (data loss) | none … 24 h |
 
-Participants enter only their name, the ratings and an optional note.
+Participants enter only their name and the ratings.
 
 ## Views
 

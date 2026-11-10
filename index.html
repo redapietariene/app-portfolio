@@ -301,7 +301,6 @@ function assessForm(){
         return `<button class="rc" data-act="go" data-step="${i}" ${locked?"disabled":""}><span>${x.type==="lv"?DIMS.find(d=>d.k===x.k).label.replace(" impact",""):x.k.toUpperCase()}</span>${v?`<b class="${lvv!=null?"cell lv"+lvv:"mono"}">${v}</b>`:`<b class="muted">Tap to answer</b>`}</button>`}).join("")}</div>
       ${bad?`<p class="banner warn" style="margin:0">Recovery (${lbl(RTO,draft.rto)}) is slower than the time the business can manage without it (${lbl(MTPD,draft.mtpd)}). Worth a second look?</p>`:""}
       <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" ${locked?"disabled":""}></label>
-      <label class="f">Anything else? <span style="font-weight:400">(optional)</span><textarea id="f-note" name="note" rows="2" ${locked?"disabled":""}>${esc(draft.note||"")}</textarea></label>
       ${locked? `<p class="banner warn" style="margin:0">Answers are closed. See the group comparison under <a href="#compare">Compare</a>.</p>`
         : `<button class="primary big-btn" data-act="submit" ${missing.length?"disabled":""}>${missing.length?`${missing.length} question${missing.length>1?"s":""} left`:saved?"Update my answers":"Send my answers"}</button>`}`;
   }
@@ -317,10 +316,10 @@ function pick(k,v){
 }
 function updateSummary(){}
 async function submitForm(){
-  const nm=$("#f-name"); if(nm) draft.name=nm.value; const nt=$("#f-note"); if(nt) draft.note=nt.value;
+  const nm=$("#f-name"); if(nm) draft.name=nm.value;
   if(!draft.name.trim()){toast("Add your name so the group knows whose answer it is");nm?.focus();return}
   const now=Date.now(); const prev=myDoc?.answers?.[openAppId];
-  const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd??null,rto:draft.rto??null,rpo:draft.rpo??null,note:(draft.note||"").trim(),submittedAt:prev?.submittedAt||now,updatedAt:now};
+  const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd??null,rto:draft.rto??null,rpo:draft.rpo??null,submittedAt:prev?.submittedAt||now,updatedAt:now};
   const btn=document.querySelector('[data-act="submit"]'); if(btn) btn.disabled=true;
   try{
     const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
@@ -453,7 +452,7 @@ async function exportXlsx(){
   const s1=filteredApps().map(a=>{const f=a.final||{};const o={"Application":a.name,"Business area":a.area||"","Responsible":a.owner||"","Session date":a.sessionDate||"","Status":a.status||"open","Answers":countFor(a.id)};
     DIMS.forEach(d=>o[d.label]=f.savedAt?lvN(f[d.k]):""); o["Overall criticality"]=f.savedAt?lvN(f.overall):""; o["MTPD"]=f.mtpd!=null?lbl(MTPD,f.mtpd):""; o["RTO"]=f.rto!=null?lbl(RTO,f.rto):""; o["RPO"]=f.rpo!=null?lbl(RPO,f.rpo):""; o["Agreed notes"]=f.notes||""; o["Agreed on"]=f.savedAt?new Date(f.savedAt).toISOString().slice(0,10):""; return o;});
   const s2=filtered().map(x=>{const o={"Application":x.app,"Business area":x.area,"Participant":x.name};
-    DIMS.forEach(d=>o[d.label]=lvN(x.r[d.k])); o["Overall criticality"]=lvN(x.overall); o["MTPD"]=lbl(MTPD,x.mtpd); o["RTO"]=lbl(RTO,x.rto); o["RPO"]=x.rpo!=null?lbl(RPO,x.rpo):""; o["Notes"]=x.note; o["Submitted"]=new Date(x.submittedAt).toISOString().slice(0,10); return o;});
+    DIMS.forEach(d=>o[d.label]=lvN(x.r[d.k])); o["Overall criticality"]=lvN(x.overall); o["MTPD"]=lbl(MTPD,x.mtpd); o["RTO"]=lbl(RTO,x.rto); o["RPO"]=x.rpo!=null?lbl(RPO,x.rpo):""; o["Submitted"]=new Date(x.submittedAt).toISOString().slice(0,10); return o;});
   const wb=XLSX.utils.book_new();
   const mk=(rows)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{"(no rows)":""}]); const keys=Object.keys(rows[0]||{}); ws["!cols"]=keys.map(k=>({wch:Math.min(40,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)})); return ws;};
   XLSX.utils.book_append_sheet(wb,mk(s1),"Agreed results");
@@ -519,7 +518,7 @@ document.addEventListener("change",e=>{
   else if(t.dataset.ag==="__"){}
   else if(t.dataset.ag){ const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
 });
-document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name") draft.name=e.target.value; if(e.target.id==="f-note") draft.note=e.target.value; });
+document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name") draft.name=e.target.value; });
 document.addEventListener("keydown",e=>{
   if(view!=="assess"||!openAppId||justDone||e.target.closest("input,textarea,select")||e.metaKey||e.ctrlKey) return;
   const st=STEPS[step]; if(!st||st.k==="review") return;
