@@ -333,7 +333,7 @@ function assessForm(){
   const a = apps.find(x=>x.id===openAppId);
   if(!a){openAppId=null;return assessList()}
   const saved = myDoc?.answers?.[a.id];
-  if(!draft) draft = JSON.parse(JSON.stringify(saved||{ratings:{},name:myDoc?.name||me.name||""}));
+  if(!draft){ const local=loadDraft(a.id); draft = (local && (!saved || (local.savedLocal||0)>(saved.updatedAt||0)))? local : JSON.parse(JSON.stringify(saved||{ratings:{},name:myDoc?.name||me.name||""})); }
   const locked = a.status!=="open";
   const top = `<div class="wiz wiz-top"><button class="small ghost" data-act="back">← Applications</button><span class="app-chip"><span class="mark" aria-hidden="true">${esc((a.name||"?").trim().slice(0,1).toUpperCase())}</span>${esc(a.name)}</span></div>`;
   if(justDone) return top+`<section class="wiz" id="wiz"><div class="q done">
@@ -375,9 +375,14 @@ function assessForm(){
   const anim = shownStep!==step; shownStep=step;
   return top+`<section class="wiz" id="wiz">${locked?"":prog}<div class="q ${anim?"anim":""}" id="q-${st.k}">${body}</div>${nav}</section>`;
 }
+function draftKey(id){ return "aca-draft:"+(me.id||"")+":"+id; }
+function loadDraft(id){ try{ const v=localStorage.getItem(draftKey(id)); return v? JSON.parse(v) : null; }catch{ return null; } }
+function keepDraft(){ if(!openAppId||!draft) return; try{ localStorage.setItem(draftKey(openAppId), JSON.stringify({...draft,savedLocal:Date.now()})); }catch{} }
+function dropDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch{} }
 function goStep(n){ clearTimeout(advT); step=Math.max(0,Math.min(STEPS.length-1,n)); render(); }
 function pick(k,v){
   if(k==="mtpd"||k==="rto"||k==="rpo") draft[k]=v; else draft.ratings={...draft.ratings,[k]:v};
+  keepDraft();
   render(); clearTimeout(advT); advT=setTimeout(()=>goStep(step+1),320);
 }
 function updateSummary(){}
@@ -390,7 +395,7 @@ async function submitForm(){
   try{
     const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
     await db.doc("responses/"+me.id).set({name:ans.name,updatedAt:now,answers});
-    justDone=true; render();
+    dropDraft(openAppId); justDone=true; render();
   }catch(err){ toast(err?.code==="invalid_argument"?"You don't have permission to answer here. Ask the facilitator to give you Contributor or Editor access.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
 }
 
@@ -542,7 +547,7 @@ async function delApp(id){
 /* ---------- events ---------- */
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]"); if(!b) return; const act=b.dataset.act, id=b.dataset.id;
-  if(act==="openApp"){openAppId=id;draft=null;justDone=false;const sv=myDoc?.answers?.[id];step=sv?STEPS.length-1:-1;shownStep=null;render();scrollTo(0,0)}
+  if(act==="openApp"){openAppId=id;draft=null;justDone=false;const sv=myDoc?.answers?.[id];const ld=loadDraft(id);step=sv?STEPS.length-1:-1;if(!sv&&ld){const i=STEPS.findIndex(x=>x.k!=="review"&&(x.k==="mtpd"||x.k==="rto"||x.k==="rpo"?ld[x.k]==null:ld.ratings?.[x.k]==null));step=i<0?STEPS.length-1:i;}shownStep=null;render();scrollTo(0,0)}
   else if(act==="go") goStep(+b.dataset.step);
   else if(act==="pick") pick(b.dataset.k,+b.dataset.v);
   else if(act==="submit") submitForm();
@@ -565,7 +570,7 @@ document.addEventListener("change",e=>{
   else if(t.dataset.ag==="__"){}
   else if(t.dataset.ag){ const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
 });
-document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name") draft.name=e.target.value; });
+document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name"){ draft.name=e.target.value; keepDraft(); } });
 document.addEventListener("keydown",e=>{
   if(view!=="assess"||!openAppId||justDone||e.target.closest("input,textarea,select")||e.metaKey||e.ctrlKey) return;
   const st=STEPS[step]; if(!st||st.k==="review") return;
