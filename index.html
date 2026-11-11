@@ -316,7 +316,7 @@ function assessList(){
 const STEPS=[...DIMS.map(d=>({k:d.k,type:"lv"})),{k:"mtpd",type:"time"},{k:"rto",type:"time"},{k:"rpo",type:"time"},{k:"review"}];
 const TIMEQ={
   mtpd:{q:"How long can the business live without it?",hint:"After this long, critical damage starts.",arr:MTPD},
-  rto:{q:"How fast must it be restored?",hint:"Back up before the business really feels it. Usually shorter than your previous answer.",arr:RTO},
+  rto:{q:"How fast must it be restored?",hint:"Pick a time shorter than your answer to the previous question, so it's back before the impact gets serious.",arr:RTO},
   rpo:{q:"How much recent work could you afford to lose?",hint:"Anything entered after the last backup would need redoing.",arr:RPO}
 };
 let step=0, justDone=false, advT=null, shownStep=null;
