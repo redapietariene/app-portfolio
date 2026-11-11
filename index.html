@@ -315,7 +315,7 @@ function assessList(){
 /* ----- Assess: one question per card ----- */
 const STEPS=[...DIMS.map(d=>({k:d.k,type:"lv"})),{k:"mtpd",type:"time"},{k:"rto",type:"time"},{k:"rpo",type:"time"},{k:"review"}];
 const TIMEQ={
-  mtpd:{q:"How long can the business live without it?",hint:"After this long, real damage starts.",arr:MTPD},
+  mtpd:{q:"How long can the business live without it?",hint:"After this long, critical damage starts.",arr:MTPD},
   rto:{q:"How fast must it be back up?",hint:"Usually a bit sooner than the time you can live without it.",arr:RTO},
   rpo:{q:"How much recent work could you afford to lose?",hint:"Anything entered after the last backup would need redoing.",arr:RPO}
 };
