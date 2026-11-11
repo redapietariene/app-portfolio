@@ -323,6 +323,11 @@ let step=0, justDone=false, advT=null, shownStep=null;
 const bars=n=>`<span class="bars" aria-hidden="true">${[0,1,2].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`;
 function valueOf(k){ return k==="mtpd"||k==="rto"||k==="rpo"? draft[k] : draft.ratings?.[k]; }
 function answerLabel(st){ const v=valueOf(st.k); if(v==null) return null; return st.type==="lv"? LV[v] : lbl(TIMEQ[st.k].arr,v); }
+function hintFor(k,t){
+  if(k!=="rto"||draft?.mtpd==null) return t.hint;
+  const lim = draft.mtpd===72? "more than 24 hours" : "up to "+lbl(MTPD,draft.mtpd);
+  return `You said the business can manage ${lim} without it. Pick a shorter time, so it's back before the impact gets serious.`;
+}
 const scenario = a => `<div class="scenario"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v7"/><path d="M6 5.2a6.5 6.5 0 1 0 8 0"/></svg><span>Imagine <b>${esc(a.name)}</b> stops working…</span></div>`;
 function assessForm(){
   const a = apps.find(x=>x.id===openAppId);
@@ -350,7 +355,7 @@ function assessForm(){
       <div class="picks">${d.d.map((t,i)=>`<button class="pick l${i} ${cur===i?"on":""}" data-act="pick" data-k="${st.k}" data-v="${i}" aria-pressed="${cur===i}">${bars(i)}<span class="pt"><b>${LV[i]}</b><span>${t}</span></span><kbd>${i+1}</kbd></button>`).join("")}</div>`;
   } else if(st.type==="time"){
     const t=TIMEQ[st.k]; const cur=draft[st.k];
-    body=`<div class="eyebrow">${step+1} of ${total}</div>${scenario(a)}<h2>${t.q}</h2><p class="muted hint">${t.hint}</p>
+    body=`<div class="eyebrow">${step+1} of ${total}</div>${scenario(a)}<h2>${t.q}</h2><p class="muted hint">${hintFor(st.k,t)}</p>
       <div class="tiles">${t.arr.map((o,i)=>`<button class="tile ${cur===o.v?"on":""}" data-act="pick" data-k="${st.k}" data-v="${o.v}" aria-pressed="${cur===o.v}"><b>${o.l}</b>${o.t?`<small>${o.t}</small>`:""}</button>`).join("")}</div>`;
   } else {
     const ov=overallOf(draft.ratings);
