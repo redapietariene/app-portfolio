@@ -22,10 +22,9 @@ Participants enter only their name and the ratings.
 
 ## Views
 
-- **Assess** – participants pick an application and answer one question per card (8 taps, auto-advance, keys 1–4 work too), then review and send. Answers can be changed until the reveal.
+- **Applications** – the list of applications; the facilitator adds or deletes them here. Participants pick an application and answer one question per card (8 taps, auto-advance, keys 1–4 work too), then review and send. Answers can be changed until the reveal.
 - **Compare** – facilitator reveals answers; a side-by-side grid marks each row *Aligned*, *Differs* or *Discuss*; the facilitator sets the agreed values and notes.
 - **Results** (facilitator) – all applications and all individual answers in one place, filterable by application, business area, status and criticality.
-- **Applications** (facilitator) – add / delete applications, see answer counts and status.
 - **Export to Excel** – `.xlsx` with two sheets: *Agreed results* and *Individual answers* (respects current filters).
 
 ## How it runs
@@ -44,8 +43,8 @@ Because it relies on these capabilities, the page works when opened on claude.ai
 
 ## Running a session
 
-1. Add the application under **Applications**.
+1. Add the application on the **Applications** page (*+ Add application*).
 2. Share the artifact with the participants (Contributor within your organization; Editor for people outside it).
-3. Everyone fills in **Assess** before or at the start of the meeting.
+3. Everyone opens the application on the **Applications** page and answers before or at the start of the meeting.
 4. In the meeting open **Compare**, press *Reveal*, discuss the rows marked *Discuss*, then *Save agreed result*.
 5. Export from **Results** when all applications are done.

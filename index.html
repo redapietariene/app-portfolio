@@ -71,8 +71,12 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .banner.warn{background:var(--med-soft);border-color:var(--med);color:var(--fg)}
 /* app picker cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
-.card{display:grid;gap:8px;text-align:left;padding:16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:400}
-.card:hover{border-color:var(--accent);background:var(--surface)}
+.card{display:grid;border-radius:10px;border:1px solid var(--line);background:var(--surface);overflow:hidden}
+.card:hover{border-color:var(--accent)}
+.card-main{display:grid;gap:8px;text-align:left;padding:16px;border:0;border-radius:0;background:transparent;font-weight:400;width:100%}
+.card-main:hover{background:var(--sunk)}
+.card-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:4px 8px 4px 16px;border-top:1px solid var(--line)}
+.card .confirm{margin:8px;border-radius:6px}
 .card .meta{font-size:.82rem;color:var(--muted)}
 /* assessment form */
 .dim{display:grid;gap:10px;padding-block:16px;border-top:1px solid var(--line)}
@@ -116,9 +120,6 @@ td.c{text-align:center}
 .comments li{padding:6px 10px;background:var(--sunk);border-radius:6px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;font-weight:600;z-index:20}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-radius:6px;background:var(--crit-soft)}
-.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:0;padding:0;list-style:none;counter-reset:s}
-.how li{counter-increment:s;padding:12px 14px;border-radius:8px;background:var(--sunk);font-size:.88rem}
-.how li::before{content:"Step " counter(s);display:block;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:2px}
 /* assessment wizard */
 .wiz{display:grid;gap:18px;max-width:640px;width:100%;margin:0 auto}
 .prog{display:flex;gap:6px}
@@ -207,6 +208,7 @@ let db=null, user=null;
 const me={id:null,owner:false,name:""};
 let apps=[], reveals={}, myDoc=null, allResp=[];
 let ready={apps:false};
+let addOpen=false;
 let view="assess", openAppId=null, compareId=null, draft=null;
 const filt={app:"",area:"",level:"",status:""};
 let confirmDel=null;
@@ -225,7 +227,7 @@ function answersFor(appId){ // owner only: live answers
 function countFor(appId){ return me.owner? answersFor(appId).length : (reveals[appId]?.entries?.length ?? null); }
 
 /* ---------- routing ---------- */
-function views(){ return me.owner? [["assess","Assess"],["compare","Compare"],["results","Results"],["apps","Applications"]] : [["assess","Assess"],["compare","Compare"]]; }
+function views(){ return me.owner? [["assess","Applications"],["compare","Compare"],["results","Results"]] : [["assess","Applications"],["compare","Compare"]]; }
 function route(){ const h=location.hash.slice(1); view = views().some(v=>v[0]===h)? h : "assess"; render(); }
 addEventListener("hashchange",route);
 
@@ -238,24 +240,39 @@ function render(){
   if(view==="assess") m.innerHTML = openAppId? assessForm() : assessList();
   else if(view==="compare") m.innerHTML = compareView();
   else if(view==="results") m.innerHTML = resultsView();
-  else if(view==="apps") m.innerHTML = appsView();
 }
 
 /* ----- Assess: list ----- */
 function assessList(){
   const list = apps.filter(a=>a.status!=="archived").sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   const mine = myDoc?.answers||{};
-  const intro = `<div><h2>Rate the applications you own</h2>
-    <p class="lede">Pick an application and answer on your own. Nobody else sees your answers until the facilitator reveals them in the meeting. Then the group compares and agrees one result.</p></div>`;
-  if(!ready.apps) return intro+`<div class="panel muted">Loading applications…</div>`;
-  if(!list.length) return intro+`<div class="panel"><h3>No applications yet</h3><p class="muted">${me.owner?'Add the first one under <a href="#apps">Applications</a>. Participants will see it here.':'The facilitator has not added any applications yet. Check back after the invite.'}</p></div>`;
-  return intro+`<div class="cards">${list.map(a=>{
+  const intro = `<div class="row between" style="align-items:flex-end"><div><h2>Applications</h2>
+    <p class="lede">Pick an application and answer on your own. Nobody sees your answers until they are revealed in the meeting.</p></div>
+    ${me.owner&&!addOpen?`<button class="primary" data-act="addOpen">+ Add application</button>`:""}</div>`;
+  const form = me.owner&&addOpen? `<form class="panel" id="addf" style="display:grid;gap:12px"><h3>New application</h3>
+    <div class="grid2">
+      <label class="f">Application name<input id="n-name" name="name" required placeholder="e.g. Amber"></label>
+      <label class="f">Business area <span style="font-weight:400">(optional)</span><input id="n-area" name="area" placeholder="e.g. Finance" list="areas"></label>
+      <label class="f">Responsible <span style="font-weight:400">(optional)</span><input id="n-owner" name="owner"></label>
+      <label class="f">Session date <span style="font-weight:400">(optional)</span><input id="n-date" name="sessionDate" type="date"></label>
+    </div>
+    <datalist id="areas">${[...new Set(apps.map(a=>a.area).filter(Boolean))].map(a=>`<option value="${esc(a)}">`).join("")}</datalist>
+    <div class="row"><button class="primary" type="submit">Add application</button><button type="button" class="ghost" data-act="addClose">Cancel</button></div>
+  </form>` : "";
+  if(!ready.apps) return intro+form+`<div class="panel muted">Loading applications…</div>`;
+  if(!list.length) return intro+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one. Participants will see it here.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
+  return intro+form+`<div class="cards">${list.map(a=>{
     const done = mine[a.id]?.submittedAt;
-    return `<button class="card" data-act="openApp" data-id="${a.id}">
-      <div class="row between"><h3>${esc(a.name)}</h3>${statusPill(a.status)}</div>
-      <div class="meta">${esc(a.area||"No business area")}${a.sessionDate?` · Session ${esc(a.sessionDate)}`:""}</div>
-      <div class="meta">${done? `Your answer saved ${fmtDate(done)}` : a.status==="open"? "Not answered yet" : "Closed for answers"}</div>
-    </button>`}).join("")}</div>`;
+    const ownerBar = !me.owner? "" : confirmDel===a.id
+      ? `<div class="confirm" style="font-size:.85rem">Delete ${esc(a.name)} and all its answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></div>`
+      : `<div class="card-foot"><span class="meta">${countFor(a.id)} answer${countFor(a.id)===1?"":"s"} in</span><span class="row" style="gap:4px"><button class="small ghost" data-act="goCompare" data-id="${a.id}">Compare</button><button class="small ghost" data-act="del" data-id="${a.id}" aria-label="Delete ${esc(a.name)}">Delete</button></span></div>`;
+    return `<div class="card">
+      <button class="card-main" data-act="openApp" data-id="${a.id}">
+        <span class="row between"><h3>${esc(a.name)}</h3>${statusPill(a.status)}</span>
+        <span class="meta">${esc(a.area||"No business area")}${a.owner?` · ${esc(a.owner)}`:""}${a.sessionDate?` · Session ${esc(a.sessionDate)}`:""}</span>
+        <span class="meta">${done? `✓ Your answer saved ${fmtDate(done)}` : a.status==="open"? "Not answered yet · tap to start" : "Closed for answers"}</span>
+      </button>${ownerBar}
+    </div>`}).join("")}</div>`;
 }
 
 /* ----- Assess: one question per card ----- */
@@ -468,29 +485,10 @@ async function exportXlsx(){
   catch(e){ if(e?.code!=="declined") toast("Couldn't save the file."); }
 }
 
-/* ----- Applications (owner) ----- */
-function appsView(){
-  const list=apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-  return `<div><h2>Applications</h2><p class="lede">Add each application before its session, then share this page with that session's participants.</p></div>
-  <ol class="how"><li>Add the application here.</li><li>Share the page with participants (Share → invite as Contributor; outside your organization, as Editor).</li><li>Each person rates it alone under Assess.</li><li>In the meeting, open Compare, reveal, discuss and save the agreed result.</li></ol>
-  <form class="panel" id="addf" style="display:grid;gap:12px"><h3>Add an application</h3>
-    <div class="grid2">
-      <label class="f">Application name<input id="n-name" name="name" required placeholder="e.g. Amber"></label>
-      <label class="f">Business area<input id="n-area" name="area" placeholder="e.g. Finance" list="areas"></label>
-      <label class="f">Responsible (business owner)<input id="n-owner" name="owner"></label>
-      <label class="f">Session date<input id="n-date" name="sessionDate" type="date"></label>
-    </div>
-    <datalist id="areas">${[...new Set(apps.map(a=>a.area).filter(Boolean))].map(a=>`<option value="${esc(a)}">`).join("")}</datalist>
-    <div><button class="primary" type="submit">Add application</button></div>
-  </form>
-  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Session</th><th>Answers</th><th>Status</th><th></th></tr></thead><tbody>
-  ${list.length? list.map(a=>`<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td class="mono">${esc(a.sessionDate||"—")}</td><td class="mono c">${countFor(a.id)}</td><td>${statusPill(a.status)}</td>
-    <td>${confirmDel===a.id? `<span class="confirm">Delete ${esc(a.name)} and its revealed answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></span>` : `<div class="row" style="gap:6px;flex-wrap:nowrap"><button class="small" data-act="goCompare" data-id="${a.id}">Compare</button><button class="small danger" data-act="del" data-id="${a.id}">Delete</button></div>`}</td></tr>`).join("") : `<tr><td colspan="7" class="muted">No applications yet. Add the first one above.</td></tr>`}
-  </tbody></table></div>`;
-}
+/* ----- Applications: add / delete (owner) ----- */
 async function addApp(e){
   e.preventDefault(); const fd=new FormData(e.target); const name=(fd.get("name")||"").trim(); if(!name) return;
-  try{ await db.doc("apps/"+slug(name)).set({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),sessionDate:fd.get("sessionDate")||"",status:"open",createdAt:Date.now()}); toast(`${name} added`); }
+  try{ await db.doc("apps/"+slug(name)).set({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),sessionDate:fd.get("sessionDate")||"",status:"open",createdAt:Date.now()}); addOpen=false; render(); toast(`${name} added`); }
   catch{ toast("Couldn't add the application. Try again."); }
 }
 async function delApp(id){
@@ -511,6 +509,8 @@ document.addEventListener("click",e=>{
   else if(act==="saveFinal") saveFinal();
   else if(act==="export") exportXlsx();
   else if(act==="goCompare"){compareId=id;location.hash="compare"}
+  else if(act==="addOpen"){addOpen=true;render();$("#n-name")?.focus()}
+  else if(act==="addClose"){addOpen=false;render()}
   else if(act==="del"){confirmDel=id;render()}
   else if(act==="delNo"){confirmDel=null;render()}
   else if(act==="delYes") delApp(id);
