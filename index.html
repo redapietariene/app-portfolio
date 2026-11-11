@@ -163,9 +163,9 @@ td select{width:auto;min-width:130px;padding:6px 10px;font-size:.85rem;border-ra
 .q h2{font-size:clamp(1.45rem,4.5vw,1.95rem);line-height:1.2}
 .q .hl{background:linear-gradient(120deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .q .hint{margin:-8px 0 0}
-.scenario{display:flex;align-items:center;gap:10px;justify-self:start;max-width:100%;padding:8px 14px 8px 10px;border-radius:12px;background:var(--crit-soft);color:var(--fg);font-size:.93rem;margin-bottom:-4px}
-.scenario svg{width:20px;height:20px;flex:none;fill:none;stroke:var(--crit);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.scenario b{font-weight:700;color:var(--crit)}
+.scenario{display:flex;align-items:center;gap:10px;justify-self:start;max-width:100%;padding:8px 14px 8px 10px;border-radius:12px;background:var(--sunk);border:1px solid var(--line);color:var(--muted);font-size:.93rem;margin-bottom:-4px}
+.scenario svg{width:20px;height:20px;flex:none;fill:none;stroke:var(--muted);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.scenario b{font-weight:700;color:var(--fg)}
 @keyframes pop{from{transform:translateY(12px);opacity:.2}to{transform:none;opacity:1}}
 .picks{display:grid;gap:10px}
 .pick{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;padding:14px 16px;border-radius:16px;border:1.5px solid var(--line);background:var(--surface);font-weight:400;box-shadow:none;transition:transform .15s,border-color .15s,background .15s,box-shadow .15s}
@@ -323,7 +323,7 @@ let step=0, justDone=false, advT=null, shownStep=null;
 const bars=n=>`<span class="bars" aria-hidden="true">${[0,1,2].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`;
 function valueOf(k){ return k==="mtpd"||k==="rto"||k==="rpo"? draft[k] : draft.ratings?.[k]; }
 function answerLabel(st){ const v=valueOf(st.k); if(v==null) return null; return st.type==="lv"? LV[v] : lbl(TIMEQ[st.k].arr,v); }
-const scenario = a => `<div class="scenario"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 18 17H2z"/><path d="M10 8v4M10 14.4v.1"/></svg><span>Imagine <b>${esc(a.name)}</b> stops working…</span></div>`;
+const scenario = a => `<div class="scenario"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v7"/><path d="M6 5.2a6.5 6.5 0 1 0 8 0"/></svg><span>Imagine <b>${esc(a.name)}</b> stops working…</span></div>`;
 function assessForm(){
   const a = apps.find(x=>x.id===openAppId);
   if(!a){openAppId=null;return assessList()}
