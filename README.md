@@ -34,7 +34,7 @@ The SLA table is a draft. Its values and the rule live at the top of the script 
 | | Participant | Facilitator |
 |---|---|---|
 | Sign-in | Types their name (no account, no password) | Email sign-in link; email must be in the `admins` table |
-| Applications page | Answers one question per card | Same, plus add / delete applications |
+| Applications page | Answers open applications, one question per card | Sees application tiles; adds, deletes, opens or stops each assessment (doesn't answer) |
 | Compare | – | Reveals, discusses, saves the agreed result |
 | Results + Excel export | – | All applications, filters, `.xlsx` export |
 
@@ -58,7 +58,7 @@ GitHub repo → **Settings** → **Pages** → Source: **Deploy from a branch**,
 
 ## Running a session
 
-1. Facilitator signs in with email and adds the application (**+ Add application**).
+1. Facilitator signs in with email, adds the application (**+ Add application**) and clicks **Open assessment** when participants are ready. New applications start as *Not started*, and participants can't answer them until then.
 2. Send participants the link. They type their name and answer (about 2 minutes).
 3. In the meeting open **Compare** → **Reveal answers**, discuss the rows marked *Discuss*, set the agreed values → **Save agreed result**.
 4. When all applications are done: **Results** → **Export to Excel**.

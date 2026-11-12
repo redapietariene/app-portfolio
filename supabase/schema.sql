@@ -17,10 +17,15 @@ create table if not exists public.apps (
   area         text not null default '',
   owner        text not null default '',
   session_date text not null default '',
-  status       text not null default 'open' check (status in ('open', 'revealed', 'agreed')),
+  status       text not null default 'not_started',
   final        jsonb,                       -- the agreed result, saved from the Compare page
   created_at   timestamptz not null default now()
 );
+
+-- Status: not_started → open (participants can answer) → revealed → agreed
+alter table public.apps drop constraint if exists apps_status_check;
+alter table public.apps add  constraint apps_status_check check (status in ('not_started', 'open', 'revealed', 'agreed'));
+alter table public.apps alter column status set default 'not_started';
 
 -- One answer per participant per application
 create table if not exists public.responses (

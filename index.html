@@ -112,6 +112,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .pill,.cell{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 9px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap;line-height:1.4}
 .pill::before,.cell::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
 .st-open{background:var(--accent-soft);color:var(--accent)}
+.st-not_started{background:var(--sunk);color:var(--muted)}
 .st-revealed{background:var(--med-soft);color:var(--med)}
 .st-agreed{background:var(--low-soft);color:var(--low)}
 .lv0{background:var(--low-soft);color:var(--low)}
@@ -126,6 +127,9 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .card:hover{transform:translateY(-3px);box-shadow:var(--sh-2);border-color:var(--line-2)}
 .card-main{display:flex;flex-direction:column;align-items:stretch;gap:10px;flex:1;text-align:left;padding:18px 20px;border:0;border-radius:0;background:transparent;font-weight:400;width:100%;box-shadow:none}
 .card-main:hover{background:transparent}
+.card-info{cursor:default}
+.card:has(.card-info):hover{transform:none;box-shadow:var(--sh-1);border-color:var(--line)}
+.card.is-waiting{opacity:.7;background:var(--sunk);box-shadow:none}
 .card-main:active{transform:none}
 .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .card-top h3{font-size:1.12rem;min-width:0;overflow-wrap:anywhere}
@@ -148,7 +152,7 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .me-go{color:var(--accent);font-weight:600}
 .card-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px 6px 20px;border-top:1px solid var(--line);background:var(--sunk)}
 .card .confirm{margin:10px;border-radius:10px}
-.card-foot .row{flex-wrap:nowrap}.card-foot .meta{white-space:nowrap}
+.card-foot{flex-wrap:wrap;row-gap:6px}.card-foot button{white-space:nowrap}.card-foot .meta{white-space:nowrap}
 .confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-radius:10px;background:var(--crit-soft);font-size:.86rem}
 
 /* tables */
@@ -314,7 +318,8 @@ const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":
 const fmtDate = t=> t? new Date(t).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : "—";
 const lvCell = v=> ![0,1,2].includes(v)? '<span class="muted">—</span>' : `<span class="cell lv${v}">${LV[v]}</span>`;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
-const statusPill = s=>`<span class="pill st-${s||"open"}">${s==="revealed"?"Answers revealed":s==="agreed"?"Agreed":"Collecting answers"}</span>`;
+const STATUS = {not_started:"Not started", open:"Assessment open", revealed:"Answers revealed", agreed:"Agreed"};
+const statusPill = s=>`<span class="pill st-${STATUS[s]?s:"open"}">${STATUS[s]||STATUS.open}</span>`;
 const slug = s=> (String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"app")+"-"+Math.random().toString(36).slice(2,7);
 function answersFor(appId){ // facilitator only: every submitted answer (row-level security returns only your own to participants)
   return respRows.filter(r=>r.appId===appId);
@@ -346,7 +351,7 @@ function assessList(){
   const list = apps.filter(a=>a.status!=="archived").sort((a,b)=>(a.name||"").localeCompare(b.name||""));
   const mine = myDoc?.answers||{};
   const intro = `<div class="row between" style="align-items:flex-end"><div><h2>Applications</h2>
-    <p class="lede">Pick an application and answer on your own. Nobody sees your answers until they are revealed in the meeting.</p></div>
+    <p class="lede">${me.owner?"Open the assessment for an application when its participants are ready. Answers come in until you reveal them in Compare.":"Pick an application and answer on your own. Nobody sees your answers until they are revealed in the meeting."}</p></div>
     ${me.owner&&!addOpen?`<button class="primary" data-act="addOpen">+ Add application</button>`:""}</div>`;
   const form = me.owner&&addOpen? `<form class="panel" id="addf" style="display:grid;gap:12px"><h3>New application</h3>
     <div class="grid2">
@@ -356,37 +361,60 @@ function assessList(){
       <label class="f">Session date <span style="font-weight:400">(optional)</span><input id="n-date" name="sessionDate" type="date"></label>
     </div>
     <datalist id="areas">${[...new Set(apps.map(a=>a.area).filter(Boolean))].map(a=>`<option value="${esc(a)}">`).join("")}</datalist>
+    <p class="muted" style="margin:0;font-size:.85rem">New applications start as <b>Not started</b>. Participants can answer once you open the assessment.</p>
     <div class="row"><button class="primary" type="submit">Add application</button><button type="button" class="ghost" data-act="addClose">Cancel</button></div>
   </form>` : "";
   const notAdmin = session && !session.user.is_anonymous && !me.owner
     ? `<div class="banner warn">You're signed in as <b>${esc(session.user.email||"")}</b>, which doesn't have facilitator access, so you see the participant view.</div>` : "";
   if(!ready.apps) return intro+notAdmin+form+`<div class="panel muted">Loading applications…</div>`;
-  if(!list.length) return intro+notAdmin+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one. Participants will see it here.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
-  const card = a=>{
-    const done = mine[a.id]?.submittedAt;
-    const ownerBar = !me.owner? "" : confirmDel===a.id
-      ? `<div class="confirm" style="font-size:.85rem">Delete ${esc(a.name)} and all its answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></div>`
-      : `<div class="card-foot"><span class="meta">${countFor(a.id)} answer${countFor(a.id)===1?"":"s"} in</span><span class="row" style="gap:4px"><button class="small ghost" data-act="goCompare" data-id="${a.id}">Compare</button><button class="small ghost danger" data-act="del" data-id="${a.id}" aria-label="Delete ${esc(a.name)}">Delete</button></span></div>`;
-    const todo = !done && a.status==="open";
-    const mark = done
+  if(!list.length) return intro+notAdmin+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
+  const head = a=>`<span class="card-top"><span class="card-id">${mark(a)}<span style="display:grid;gap:2px;min-width:0"><h3>${esc(a.name)}</h3><span class="meta">${esc(a.area||"No business area")}${a.owner?` · ${esc(a.owner)}`:""}</span></span></span></span>
+        ${a.sessionDate?`<span class="meta">Session ${esc(a.sessionDate)}</span>`:""}`;
+  const mark = a=> (!me.owner && mine[a.id]?.submittedAt)
       ? `<span class="mark mark-done" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M5 10.5l3.2 3.2L15 7"/></svg></span>`
       : `<span class="mark" aria-hidden="true">${esc((a.name||"?").trim().slice(0,1).toUpperCase())}</span>`;
+  const verdict = a=> me.owner && a.final?.savedAt&&a.final.overall!=null?`<span class="cell lv${a.final.overall}">${LV[a.final.overall]}</span>`:"";
+
+  if(me.owner){
+    const ownerCard = a=>{
+      const n=countFor(a.id);
+      const toggle = a.status==="not_started"? `<button class="small primary" data-act="setOpen" data-id="${a.id}">Open assessment</button>`
+                   : a.status==="open"? `<button class="small" data-act="setClosed" data-id="${a.id}">Stop assessment</button>` : "";
+      const foot = confirmDel===a.id
+        ? `<div class="confirm" style="font-size:.85rem">Delete ${esc(a.name)} and all its answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></div>`
+        : `<div class="card-foot"><button class="small ghost" data-act="goCompare" data-id="${a.id}">Compare</button><button class="small ghost danger" data-act="del" data-id="${a.id}" aria-label="Delete ${esc(a.name)}">Delete</button></div>`;
+      return `<div class="card st-card-${a.status}">
+        <div class="card-main card-info">${head(a)}
+          <span class="card-status">${statusPill(a.status)}${verdict(a)}<span class="meta">${n} answer${n===1?"":"s"} in</span></span>
+          ${toggle?`<div>${toggle}</div>`:""}
+        </div>${foot}</div>`;
+    };
+    return intro+notAdmin+form+`<div class="cards">${list.map(ownerCard).join("")}</div>`;
+  }
+
+  const card = a=>{
+    const done = mine[a.id]?.submittedAt;
+    const todo = !done && a.status==="open";
+    const waiting = !done && a.status==="not_started";
     const mineTag = done? `<span class="me-done">✓ Answered ${fmtDate(done)}</span>` : todo? `<span class="me-go">Start →</span>` : "";
-    return `<div class="card ${done?"is-done":todo?"is-todo":"is-closed"}">
-      <button class="card-main" data-act="openApp" data-id="${a.id}" aria-label="${esc(a.name)}${done?" (answered)":todo?" (not answered yet)":""}">
-        <span class="card-top"><span class="card-id">${mark}<span style="display:grid;gap:2px;min-width:0"><h3>${esc(a.name)}</h3><span class="meta">${esc(a.area||"No business area")}${a.owner?` · ${esc(a.owner)}`:""}</span></span></span></span>
-        ${a.sessionDate?`<span class="meta">Session ${esc(a.sessionDate)}</span>`:""}
-        <span class="card-status">${statusPill(a.status)}${a.final?.savedAt&&a.final.overall!=null?`<span class="cell lv${a.final.overall}">${LV[a.final.overall]}</span>`:""}${mineTag}</span>
-      </button>${ownerBar}
-    </div>`;
+    const pill = waiting? `<span class="pill st-not_started">Assessment not started</span>` : statusPill(a.status);
+    const inner = `${head(a)}<span class="card-status">${pill}${verdict(a)}${mineTag}</span>`;
+    return waiting
+      ? `<div class="card is-waiting"><div class="card-main card-info" aria-disabled="true">${inner}</div></div>`
+      : `<div class="card ${done?"is-done":todo?"is-todo":"is-closed"}"><button class="card-main" data-act="openApp" data-id="${a.id}" aria-label="${esc(a.name)}${done?" (answered)":todo?" (not answered yet)":""}">${inner}</button></div>`;
   };
-  if(me.owner) return intro+notAdmin+form+`<div class="cards">${list.map(card).join("")}</div>`;
   const groups = [
     ["To answer", list.filter(a=>!mine[a.id]?.submittedAt && a.status==="open")],
     ["Answered", list.filter(a=>mine[a.id]?.submittedAt)],
-    ["Closed", list.filter(a=>!mine[a.id]?.submittedAt && a.status!=="open")]
+    ["Not started yet", list.filter(a=>!mine[a.id]?.submittedAt && a.status==="not_started")],
+    ["Closed", list.filter(a=>!mine[a.id]?.submittedAt && (a.status==="revealed"||a.status==="agreed"))]
   ].filter(g=>g[1].length);
   return intro+notAdmin+form+groups.map(([t,items])=>`<section class="group"><h3 class="group-h">${t} <span>${items.length}</span></h3><div class="cards">${items.map(card).join("")}</div></section>`).join("");
+}
+async function setStatus(id,status){
+  try{ const {error}=await db.from("apps").update({status}).eq("id",id); if(error) throw error;
+    await loadAll(true); toast(status==="open"?"Assessment opened":"Assessment stopped"); }
+  catch{ toast("Couldn't change the status. Try again."); }
 }
 
 /* ----- Assess: one question per card ----- */
@@ -444,7 +472,7 @@ function assessForm(){
         return `<button class="rc" data-act="go" data-step="${i}" ${locked?"disabled":""}><span>${x.type==="lv"?DIMS.find(d=>d.k===x.k).label.replace(" impact",""):x.k.toUpperCase()}</span>${v?`<b class="${lvv!=null?"cell lv"+lvv:"mono"}">${v}</b>`:`<b class="muted">Tap to answer</b>`}</button>`}).join("")}</div>
       ${bad?`<p class="banner warn" style="margin:0">Recovery (${lbl(RTO,draft.rto)}) is slower than the time the business can manage without it (${lbl(MTPD,draft.mtpd)}). Worth a second look?</p>`:""}
       <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" ${locked?"disabled":""}></label>
-      ${locked? `<p class="banner warn" style="margin:0">${me.owner?`Answers are closed. See the group comparison under <a href="#compare">Compare</a>.`:"Answers for this application are closed."}</p>`
+      ${locked? `<p class="banner warn" style="margin:0">${a.status==="not_started"?"This assessment isn't open right now. You can change your answers when the facilitator opens it again.":"Answers for this application are closed."}</p>`
         : `<button class="primary big-btn" data-act="submit" ${missing.length?"disabled":""}>${missing.length?`${missing.length} question${missing.length>1?"s":""} left`:saved?"Update my answers":"Send my answers"}</button>`}`;
   }
   const nav = st.type==="review"||locked? (locked?"":`<div class="row between"><button class="small ghost" data-act="go" data-step="${step-1}">← Back</button><span></span></div>`)
@@ -510,7 +538,7 @@ function agreedCtl(row, final, editable){
 }
 function compareView(){
   const list = apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
-  if(!compareId || !apps.some(a=>a.id===compareId)) compareId = list.find(a=>a.status!=="open")?.id || list[0]?.id || null;
+  if(!compareId || !apps.some(a=>a.id===compareId)) compareId = list.find(a=>a.status==="revealed"||a.status==="agreed")?.id || list.find(a=>a.status==="open")?.id || list[0]?.id || null;
   const head = `<div><h2>Compare answers</h2><p class="lede">${me.owner?"Answers stay hidden until you reveal them. Reveal in the meeting, talk through the rows marked Discuss, then record the agreed result.":"Answers appear here once the facilitator reveals them in the meeting."}</p></div>`;
   if(!list.length) return head+`<div class="panel muted">No applications yet.</div>`;
   const a = apps.find(x=>x.id===compareId);
@@ -603,7 +631,7 @@ function resultsView(){
   <div class="panel grid2">
     ${sel("fl-app","app",apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(a=>[a.id,a.name]),"Application")}
     ${sel("fl-area","area",areas.map(a=>[a,a]),"Business area")}
-    ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
+    ${sel("fl-status","status",[["not_started","Not started"],["open","Assessment open"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
     ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
   </div>
   <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Proposed SLA</th></tr></thead><tbody>
@@ -628,7 +656,7 @@ async function exportXlsx(){
 /* ----- Applications: add / delete (owner) ----- */
 async function addApp(e){
   e.preventDefault(); const fd=new FormData(e.target); const name=(fd.get("name")||"").trim(); if(!name) return;
-  try{ const {error}=await db.from("apps").insert({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),session_date:fd.get("sessionDate")||"",status:"open"}); if(error) throw error;
+  try{ const {error}=await db.from("apps").insert({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),session_date:fd.get("sessionDate")||"",status:"not_started"}); if(error) throw error;
     addOpen=false; await loadAll(true); toast(`${name} added`); }
   catch{ toast("Couldn't add the application. Try again."); }
 }
@@ -695,7 +723,7 @@ async function loadAll(force){
 /* ---------- events ---------- */
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]"); if(!b) return; const act=b.dataset.act, id=b.dataset.id;
-  if(act==="openApp"){openAppId=id;draft=null;justDone=false;const sv=myDoc?.answers?.[id];const ld=loadDraft(id);step=sv?STEPS.length-1:-1;if(!sv&&ld){const i=STEPS.findIndex(x=>x.k!=="review"&&(x.k==="mtpd"||x.k==="rto"||x.k==="rpo"?ld[x.k]==null:ld.ratings?.[x.k]==null));step=i<0?STEPS.length-1:i;}shownStep=null;render();scrollTo(0,0)}
+  if(act==="openApp"){ const ap=apps.find(x=>x.id===id); if(me.owner||!ap||(ap.status==="not_started"&&!myDoc?.answers?.[id])) return;openAppId=id;draft=null;justDone=false;const sv=myDoc?.answers?.[id];const ld=loadDraft(id);step=sv?STEPS.length-1:-1;if(!sv&&ld){const i=STEPS.findIndex(x=>x.k!=="review"&&(x.k==="mtpd"||x.k==="rto"||x.k==="rpo"?ld[x.k]==null:ld.ratings?.[x.k]==null));step=i<0?STEPS.length-1:i;}shownStep=null;render();scrollTo(0,0)}
   else if(act==="go") goStep(+b.dataset.step);
   else if(act==="pick") pick(b.dataset.k,+b.dataset.v);
   else if(act==="submit") submitForm();
@@ -705,6 +733,8 @@ document.addEventListener("click",e=>{
   else if(act==="saveFinal") saveFinal();
   else if(act==="export") exportXlsx();
   else if(act==="goCompare"){compareId=id;location.hash="compare"}
+  else if(act==="setOpen") setStatus(id,"open");
+  else if(act==="setClosed") setStatus(id,"not_started");
   else if(act==="addOpen"){addOpen=true;render();$("#n-name")?.focus()}
   else if(act==="addClose"){addOpen=false;render()}
   else if(act==="del"){confirmDel=id;render()}
