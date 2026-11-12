@@ -169,6 +169,13 @@ td select{width:auto;min-width:130px;padding:6px 10px;font-size:.85rem;border-ra
 .tot-r td:first-child::after{content:"";position:absolute;left:11px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--accent)}
 .tot-r .cell{font-size:.84rem;padding:5px 12px 5px 11px;box-shadow:inset 0 0 0 1.5px currentColor}
 .tot-l{display:grid;gap:1px}.tot-l b{font-family:var(--f-display);font-weight:800}.tot-l small{color:var(--muted);font-size:.75rem;white-space:nowrap}
+.sla-panel{display:grid;gap:16px}
+.sla-name{margin-top:6px}.sla-name .cell{font-size:1rem;padding:6px 14px 6px 12px;font-family:var(--f-display);font-weight:800}
+.sla-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.sla-grid>div{display:grid;gap:2px;padding:12px 14px;border-radius:12px;background:var(--sunk)}
+.sla-grid span{font-size:.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.sla-grid b{font-family:var(--f-display);font-size:1.05rem}
+.sla-grid small{color:var(--muted);font-size:.75rem}
 .gap0,.gap1,.gap2{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600}
 .gap0{color:var(--low)}.gap1{color:var(--med)}.gap2{color:var(--crit)}
 .gap2::before{content:"!";display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--crit);color:var(--surface);font-size:.7rem;font-weight:800}
@@ -265,6 +272,24 @@ const DIMS = [
 const MTPD = [{v:2,l:"2 hours",t:"Low tolerance"},{v:8,l:"8 hours",t:"Medium tolerance"},{v:24,l:"24 hours",t:"High tolerance"},{v:72,l:"More than 24 h",t:"Very high tolerance"}];
 const RTO  = [{v:1,l:"1 hour"},{v:2,l:"2 hours"},{v:4,l:"4 hours"},{v:8,l:"8 hours"},{v:24,l:"24 hours"},{v:72,l:"3 days"}];
 const RPO  = [{v:0,l:"No data loss"},{v:0.25,l:"15 minutes"},{v:1,l:"1 hour"},{v:4,l:"4 hours"},{v:24,l:"24 hours"}];
+/* Draft SLA levels (approximate, still being agreed). Edit here; the proposal is recalculated, nothing is stored. */
+const SLA = [
+  {key:"L1", name:"Level 1 – Critical", cls:"lv2", avail:"99.90%", down:"44 min / month",   support:"24/7",                    react:"15 min", solve:"2 hours",          dr:"4 hours"},
+  {key:"L2", name:"Level 2 – High",     cls:"lv1", avail:"99.50%", down:"3.6 hours / month", support:"Extended business hours", react:"30 min", solve:"4 hours",          dr:"8 hours"},
+  {key:"L3", name:"Level 3 – Standard", cls:"lv0", avail:"99%",    down:"7.3 hours / month", support:"Business hours (8x5)",    react:"1 hour", solve:"8 business hours", dr:"24–48 hours"}
+];
+/* Rule: take the stricter of (a) overall criticality and (b) the agreed RTO compared with each level's disaster recovery time. */
+function proposeSla(f){
+  if(!f?.savedAt) return null;
+  const byCrit = f.overall===2?0 : f.overall===1?1 : f.overall===0?2 : null;
+  const byRto  = f.rto==null? null : f.rto<=4?0 : f.rto<=8?1 : 2;
+  const c=[byCrit,byRto].filter(v=>v!=null); if(!c.length) return null;
+  const idx=Math.min(...c), why=[];
+  if(byCrit===idx) why.push(`overall criticality is ${LV[f.overall]}`);
+  if(byRto===idx) why.push(`agreed RTO is ${lbl(RTO,f.rto)}`);
+  return {...SLA[idx], why};
+}
+const slaCell = f => { const p=proposeSla(f); return p? `<span class="cell ${p.cls}">${p.name}</span>` : '<span class="muted">—</span>'; };
 const lbl = (arr,v)=> (arr.find(o=>o.v===v)||{}).l || "—";
 const mtpdLevel = v => v==null?null : v<=2?2 : v<=8?1 : 0;
 const overallOf = r => { const vals = DIMS.map(d=>r?.[d.k]).filter(v=>v!=null); return vals.length? Math.max(...vals) : null; };
@@ -516,6 +541,19 @@ function compareView(){
   </tbody></table></div>`;
   if(editable) body += `<div class="panel" style="display:grid;gap:10px"><label class="f">Agreed notes / decisions<textarea id="ag-notes" rows="2">${esc(final?.notes||"")}</textarea></label><div class="row"><button class="primary" data-act="saveFinal">Save agreed result</button>${a.final?.savedAt?`<span class="muted" style="font-size:.85rem">Last saved ${fmtDate(a.final.savedAt)}</span>`:""}</div></div>`;
   else if(final?.notes) body += `<div class="panel"><div class="eyebrow">Agreed notes</div><p style="margin:4px 0 0">${esc(final.notes)}</p></div>`;
+  const sla = proposeSla(a.final);
+  if(sla) body += `<div class="panel sla-panel">
+    <div class="sla-head"><div><div class="eyebrow">Proposed SLA level</div><div class="sla-name"><span class="cell ${sla.cls}">${sla.name}</span></div>
+      <p class="muted" style="margin:6px 0 0;font-size:.88rem">Based on the agreed result: ${sla.why.join(" and ")}.</p></div></div>
+    <div class="sla-grid">
+      <div><span>Availability</span><b>${sla.avail}</b><small>max ${sla.down} downtime</small></div>
+      <div><span>Support</span><b>${sla.support}</b></div>
+      <div><span>Reaction time</span><b>${sla.react}</b><small>critical incident</small></div>
+      <div><span>Solving time</span><b>${sla.solve}</b><small>critical incident</small></div>
+      <div><span>Disaster recovery</span><b>${sla.dr}</b></div>
+    </div>
+    <p class="muted" style="margin:0;font-size:.8rem">A proposal from the draft SLA table, not a final decision. It updates when the agreed result changes.</p></div>`;
+  else if(editable && !a.final?.savedAt) body += `<p class="muted" style="margin:0;font-size:.88rem">The proposed SLA level appears here after you save the agreed result.</p>`;
   if(entries.some(e=>e.note)) body += `<div class="panel" style="display:grid;gap:10px"><h3>Notes from participants</h3><ul class="comments">${entries.filter(e=>e.note).map(e=>`<li><b>${esc(e.name||"Someone")}</b>: ${esc(e.note)}</li>`).join("")}</ul></div>`;
   return head+picker+body;
 }
@@ -568,15 +606,15 @@ function resultsView(){
     ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
     ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
   </div>
-  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th></tr></thead><tbody>
-  ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td><td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td></tr>`}).join("") : `<tr><td colspan="9" class="muted">No applications match these filters.</td></tr>`}
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Proposed SLA</th></tr></thead><tbody>
+  ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td><td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td><td>${slaCell(a.final)}</td></tr>`}).join("") : `<tr><td colspan="10" class="muted">No applications match these filters.</td></tr>`}
   </tbody></table></div>`;
 }
 async function exportXlsx(){
   if(!window.XLSX){toast("The Excel library didn't load. Reload the page and try again.");return}
   const lvN=v=>v==null?"":LV[v];
   const s1=filteredApps().map(a=>{const f=a.final||{};const o={"Application":a.name,"Business area":a.area||"","Responsible":a.owner||"","Session date":a.sessionDate||"","Status":a.status||"open","Answers":countFor(a.id)};
-    DIMS.forEach(d=>o[d.label]=f.savedAt?lvN(f[d.k]):""); o["Overall criticality"]=f.savedAt?lvN(f.overall):""; o["MTPD"]=f.mtpd!=null?lbl(MTPD,f.mtpd):""; o["RTO"]=f.rto!=null?lbl(RTO,f.rto):""; o["RPO"]=f.rpo!=null?lbl(RPO,f.rpo):""; o["Agreed notes"]=f.notes||""; o["Agreed on"]=f.savedAt?new Date(f.savedAt).toISOString().slice(0,10):""; return o;});
+    DIMS.forEach(d=>o[d.label]=f.savedAt?lvN(f[d.k]):""); o["Overall criticality"]=f.savedAt?lvN(f.overall):""; o["MTPD"]=f.mtpd!=null?lbl(MTPD,f.mtpd):""; o["RTO"]=f.rto!=null?lbl(RTO,f.rto):""; o["RPO"]=f.rpo!=null?lbl(RPO,f.rpo):""; o["Proposed SLA level"]=proposeSla(a.final)?.name||""; o["Agreed notes"]=f.notes||""; o["Agreed on"]=f.savedAt?new Date(f.savedAt).toISOString().slice(0,10):""; return o;});
   const s2=filtered().map(x=>{const o={"Application":x.app,"Business area":x.area,"Participant":x.name};
     DIMS.forEach(d=>o[d.label]=lvN(x.r[d.k])); o["Overall criticality"]=lvN(x.overall); o["MTPD"]=lbl(MTPD,x.mtpd); o["RTO"]=lbl(RTO,x.rto); o["RPO"]=x.rpo!=null?lbl(RPO,x.rpo):""; o["Submitted"]=new Date(x.submittedAt).toISOString().slice(0,10); return o;});
   const wb=XLSX.utils.book_new();

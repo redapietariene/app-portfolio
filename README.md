@@ -21,6 +21,14 @@ Each participant rates an application **on their own**. Nobody sees the others' 
 | RTO – recovery time objective | 1 h … 3 days (warns if longer than MTPD) |
 | RPO – recovery point objective (data loss) | none … 24 h |
 
+## Proposed SLA level
+
+After the facilitator saves the agreed result, Compare and Results show a **proposed SLA level** (also in the Excel export). It takes the stricter of:
+- overall criticality: Critical → Level 1, Medium → Level 2, Low → Level 3
+- agreed RTO against each level's disaster recovery time: up to 4 hours → Level 1, up to 8 hours → Level 2, longer → Level 3
+
+The SLA table is a draft. Its values and the rule live at the top of the script in `index.html` (`SLA` and `proposeSla`). The proposal is calculated on the fly, so changing them updates every application.
+
 ## Who sees what
 
 | | Participant | Facilitator |
