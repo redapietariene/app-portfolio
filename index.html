@@ -673,6 +673,8 @@ async function onSession(sess){
   me.name=sess.user.user_metadata?.name||"";
   me.owner=false;
   if(!sess.user.is_anonymous){ const {data}=await db.rpc("is_admin"); me.owner=!!data; }
+  openAppId=null; draft=null;
+  if(location.hash) history.replaceState(null,"",location.pathname+location.search);  // always start on Applications
   await loadAll(true); route();
   clearInterval(pollT); pollT=setInterval(()=>{ if(!document.hidden) loadAll(false); },15000);
 }
