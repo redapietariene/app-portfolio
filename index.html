@@ -322,7 +322,7 @@ function answersFor(appId){ // facilitator only: every submitted answer (row-lev
 function countFor(appId){ return me.owner? answersFor(appId).length : (reveals[appId]?.entries?.length ?? null); }
 
 /* ---------- routing ---------- */
-function views(){ return me.owner? [["assess","Applications"],["compare","Compare"],["results","Results"]] : [["assess","Applications"],["compare","Compare"]]; }
+function views(){ return me.owner? [["assess","Applications"],["compare","Compare"],["results","Results"]] : [["assess","Applications"]]; }
 function route(){ const h=location.hash.slice(1); view = views().some(v=>v[0]===h)? h : "assess"; render(); }
 addEventListener("hashchange",route);
 
@@ -330,7 +330,7 @@ addEventListener("hashchange",route);
 function render(){
   $("#nav").innerHTML = views().map(([k,l])=>`<a href="#${k}" ${k===view?'aria-current="page"':""}>${l}</a>`).join("");
   $("#who").textContent = me.id? (me.owner? "Facilitator view" : "Participant view") : "";
-  $("#nav").hidden = !session;
+  $("#nav").hidden = !session || !me.owner;
   $("#acct").innerHTML = session? `<span>${session.user.is_anonymous?"Answering as":"Signed in as"} <b>${esc(session.user.is_anonymous?(me.name||"guest"):(session.user.email||""))}</b></span><button class="small ghost" data-act="signOut">Sign out</button>` : "";
   const m=$("#main");
   if(!db){ m.innerHTML=`<div class="panel"><h3>The app couldn't start</h3><p class="muted" style="margin:0">The database library didn't load. Check your internet connection and reload the page.</p></div>`; return; }
@@ -444,7 +444,7 @@ function assessForm(){
         return `<button class="rc" data-act="go" data-step="${i}" ${locked?"disabled":""}><span>${x.type==="lv"?DIMS.find(d=>d.k===x.k).label.replace(" impact",""):x.k.toUpperCase()}</span>${v?`<b class="${lvv!=null?"cell lv"+lvv:"mono"}">${v}</b>`:`<b class="muted">Tap to answer</b>`}</button>`}).join("")}</div>
       ${bad?`<p class="banner warn" style="margin:0">Recovery (${lbl(RTO,draft.rto)}) is slower than the time the business can manage without it (${lbl(MTPD,draft.mtpd)}). Worth a second look?</p>`:""}
       <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" ${locked?"disabled":""}></label>
-      ${locked? `<p class="banner warn" style="margin:0">Answers are closed. See the group comparison under <a href="#compare">Compare</a>.</p>`
+      ${locked? `<p class="banner warn" style="margin:0">${me.owner?`Answers are closed. See the group comparison under <a href="#compare">Compare</a>.`:"Answers for this application are closed."}</p>`
         : `<button class="primary big-btn" data-act="submit" ${missing.length?"disabled":""}>${missing.length?`${missing.length} question${missing.length>1?"s":""} left`:saved?"Update my answers":"Send my answers"}</button>`}`;
   }
   const nav = st.type==="review"||locked? (locked?"":`<div class="row between"><button class="small ghost" data-act="go" data-step="${step-1}">← Back</button><span></span></div>`)

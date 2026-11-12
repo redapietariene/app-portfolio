@@ -120,8 +120,8 @@ create policy "responses update" on public.responses for update to authenticated
 create policy "responses delete" on public.responses for delete to authenticated
   using (public.is_admin());
 
--- Revealed answers: everyone signed in reads; only facilitators write
-create policy "reveals read"  on public.reveals for select to authenticated using (true);
+-- Revealed answers: only facilitators read and write (participants don't see the Compare page)
+create policy "reveals read"  on public.reveals for select to authenticated using (public.is_admin());
 create policy "reveals write" on public.reveals for all to authenticated
   using (public.is_admin()) with check (public.is_admin());
 

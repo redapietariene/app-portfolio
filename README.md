@@ -35,7 +35,7 @@ The SLA table is a draft. Its values and the rule live at the top of the script 
 |---|---|---|
 | Sign-in | Types their name (no account, no password) | Email sign-in link; email must be in the `admins` table |
 | Applications page | Answers one question per card | Same, plus add / delete applications |
-| Compare | Sees answers only after the reveal | Reveals, discusses, saves the agreed result |
+| Compare | – | Reveals, discusses, saves the agreed result |
 | Results + Excel export | – | All applications, filters, `.xlsx` export |
 
 Blind answers are enforced by the database, not just hidden by the page: a participant can only read their own answers, and can only write while the application is still collecting answers.
