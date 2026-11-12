@@ -1,9 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
 <title>App Criticality Assessment</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <style>
 /* Layout: calm product UI — frosted sticky header with a segmented view switcher, one 1160px column, elevated white surfaces on a cool canvas, traffic-light semantics kept apart from the cobalt accent. */
 :root{
@@ -37,6 +42,11 @@
   --sh-1:0 1px 2px rgba(0,0,0,.3); --sh-2:0 8px 24px -8px rgba(0,0,0,.5); --sh-3:0 24px 48px -12px rgba(0,0,0,.6);
   color-scheme:dark}
 *{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.02em}
@@ -90,6 +100,14 @@ button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
 .mono{font-variant-numeric:tabular-nums;font-weight:500}
 .eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
 
+/* sign-in + account */
+.acct{display:flex;align-items:center;gap:8px;font-size:.83rem;color:var(--muted)}
+.acct b{color:var(--fg);font-weight:600}
+.login{max-width:440px;width:100%;margin:6vh auto 0;display:grid;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:32px 28px;box-shadow:var(--sh-2)}
+.login h2{font-size:1.6rem}
+.login .alt{font-size:.85rem;color:var(--muted);text-align:center}
+.login .alt button{font-size:.85rem}
+.sent{padding:14px 16px;border-radius:14px;background:var(--low-soft);color:var(--fg)}
 /* status + level badges */
 .pill,.cell{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 9px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap;line-height:1.4}
 .pill::before,.cell::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
@@ -211,13 +229,15 @@ td select{width:auto;min-width:130px;padding:6px 10px;font-size:.85rem;border-ra
 @media (max-width:640px){.q{padding:24px 18px;border-radius:20px}.pick kbd{display:none}.panel{padding:16px}.brand small{display:none}nav{width:100%}nav a{flex:1;text-align:center;padding-inline:8px}main{padding-block:22px 56px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
-
+</head>
+<body>
 <header><div class="wrap hdr">
   <div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 20 20"><rect x="2" y="11" width="4" height="7" rx="1.5" opacity=".55"/><rect x="8" y="7" width="4" height="11" rx="1.5" opacity=".8"/><rect x="14" y="2" width="4" height="16" rx="1.5"/></svg></span><div class="brand-t"><h1>App Criticality Assessment</h1><small id="who"></small></div></div>
-  <nav id="nav" aria-label="Views"></nav>
+  <nav id="nav" aria-label="Views" hidden></nav>
+  <div class="acct" id="acct"></div>
 </div></header>
 <main class="wrap" id="main">
-  <div class="panel"><p class="muted" style="margin:0">Connecting to the shared assessment store…</p></div>
+  <div class="panel"><p class="muted" style="margin:0">Loading…</p></div>
 </main>
 <div class="toast" id="toast" hidden></div>
 
@@ -239,9 +259,13 @@ const mtpdLevel = v => v==null?null : v<=2?2 : v<=8?1 : 0;
 const overallOf = r => { const vals = DIMS.map(d=>r?.[d.k]).filter(v=>v!=null); return vals.length? Math.max(...vals) : null; };
 
 /* ---------- state ---------- */
-let db=null, user=null;
+/* ---------- Supabase connection (the publishable key is meant to be public; access is enforced by row-level security) ---------- */
+const SUPABASE_URL = "https://mliljiogzgaazaycgixz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_3qngRVTDoG-jlGnDY_B3GQ_kjBqlwTj";
+let db=null, session=null, loginMode="name", loginSent=false, loadErr=null;
+let agDirty=false;
 const me={id:null,owner:false,name:""};
-let apps=[], reveals={}, myDoc=null, allResp=[];
+let apps=[], reveals={}, myDoc=null, respRows=[];
 let ready={apps:false};
 let addOpen=false;
 let view="assess", openAppId=null, compareId=null, draft=null;
@@ -256,8 +280,8 @@ const lvCell = v=> v==null? '<span class="muted">—</span>' : `<span class="cel
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
 const statusPill = s=>`<span class="pill st-${s||"open"}">${s==="revealed"?"Answers revealed":s==="agreed"?"Agreed":"Collecting answers"}</span>`;
 const slug = s=> (String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"app")+"-"+Math.random().toString(36).slice(2,7);
-function answersFor(appId){ // owner only: live answers
-  return allResp.map(r=>({uid:r.id, ...(r.data.answers?.[appId]||{})})).filter(a=>a.submittedAt);
+function answersFor(appId){ // facilitator only: every submitted answer (row-level security returns only your own to participants)
+  return respRows.filter(r=>r.appId===appId);
 }
 function countFor(appId){ return me.owner? answersFor(appId).length : (reveals[appId]?.entries?.length ?? null); }
 
@@ -270,8 +294,12 @@ addEventListener("hashchange",route);
 function render(){
   $("#nav").innerHTML = views().map(([k,l])=>`<a href="#${k}" ${k===view?'aria-current="page"':""}>${l}</a>`).join("");
   $("#who").textContent = me.id? (me.owner? "Facilitator view" : "Participant view") : "";
-  if(!db){return}
+  $("#nav").hidden = !session;
+  $("#acct").innerHTML = session? `<span>${me.owner?"Signed in as":"Answering as"} <b>${esc(me.owner?(session.user.email||""):(me.name||"guest"))}</b></span><button class="small ghost" data-act="signOut">Sign out</button>` : "";
   const m=$("#main");
+  if(!db){ m.innerHTML=`<div class="panel"><h3>The app couldn't start</h3><p class="muted" style="margin:0">The database library didn't load. Check your internet connection and reload the page.</p></div>`; return; }
+  if(!session){ m.innerHTML=loginView(); return; }
+  if(loadErr){ m.innerHTML=`<div class="panel"><h3>Couldn't load the data</h3><p class="muted" style="margin:0">${esc(loadErr)}</p><div class="row" style="margin-top:12px"><button data-act="reload">Try again</button></div></div>`; return; }
   if(view==="assess") m.innerHTML = openAppId? assessForm() : assessList();
   else if(view==="compare") m.innerHTML = compareView();
   else if(view==="results") m.innerHTML = resultsView();
@@ -391,10 +419,11 @@ async function submitForm(){
   const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd??null,rto:draft.rto??null,rpo:draft.rpo??null,submittedAt:prev?.submittedAt||now,updatedAt:now};
   const btn=document.querySelector('[data-act="submit"]'); if(btn) btn.disabled=true;
   try{
-    const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
-    await db.doc("responses/"+me.id).set({name:ans.name,updatedAt:now,answers});
-    dropDraft(openAppId); justDone=true; render();
-  }catch(err){ toast(err?.code==="invalid_argument"?"You don't have permission to answer here. Ask the facilitator to give you Contributor or Editor access.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
+    const {error}=await db.from("responses").upsert({app_id:openAppId,user_id:me.id,name:ans.name,ratings:ans.ratings,mtpd:ans.mtpd,rto:ans.rto,rpo:ans.rpo,updated_at:new Date(now).toISOString()},{onConflict:"app_id,user_id"});
+    if(error) throw error;
+    if(!me.owner&&ans.name!==me.name){ me.name=ans.name; db.auth.updateUser({data:{name:ans.name}}).catch(()=>{}); }
+    dropDraft(openAppId); justDone=true; await loadAll(true); render();
+  }catch(err){ toast(isRls(err)?"Answers for this application are closed.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
 }
 
 /* ----- Compare ----- */
@@ -466,30 +495,34 @@ function compareView(){
 }
 async function doReveal(){
   const a=apps.find(x=>x.id===compareId); const live=answersFor(a.id);
-  const entries = live.map(e=>({uid:e.uid,name:e.name||"",ratings:e.ratings||{},mtpd:e.mtpd??null,rto:e.rto??null,rpo:e.rpo??null,note:e.note||""}));
-  try{ await db.doc("reveals/"+a.id).set({appId:a.id,revealedAt:Date.now(),entries});
-    if(a.status==="open") await db.doc("apps/"+a.id).update({status:"revealed"});
-    toast("Answers revealed"); }catch{ toast("Couldn't reveal. Try again."); }
+  const entries = live.map(e=>({uid:e.uid,name:e.name||"",ratings:e.ratings||{},mtpd:e.mtpd??null,rto:e.rto??null,rpo:e.rpo??null}));
+  try{
+    let {error}=await db.from("reveals").upsert({app_id:a.id,revealed_at:new Date().toISOString(),entries},{onConflict:"app_id"}); if(error) throw error;
+    if(a.status==="open"){ ({error}=await db.from("apps").update({status:"revealed"}).eq("id",a.id)); if(error) throw error; }
+    await loadAll(true); toast("Answers revealed");
+  }catch{ toast("Couldn't reveal. Try again."); }
 }
 async function doReopen(){
   const a=apps.find(x=>x.id===compareId);
-  try{ await db.doc("reveals/"+a.id).delete(); await db.doc("apps/"+a.id).update({status:"open"}); toast("Re-opened for answers"); }catch{ toast("Couldn't re-open. Try again."); }
+  try{
+    let {error}=await db.from("reveals").delete().eq("app_id",a.id); if(error) throw error;
+    ({error}=await db.from("apps").update({status:"open"}).eq("id",a.id)); if(error) throw error;
+    await loadAll(true); toast("Re-opened for answers");
+  }catch{ toast("Couldn't re-open. Try again."); }
 }
 async function saveFinal(){
   const a=apps.find(x=>x.id===compareId); const f={};
   document.querySelectorAll("[data-ag]").forEach(s=>{ if(s.value!=="") f[s.dataset.ag]=+s.value; });
   f.notes=($("#ag-notes")?.value||"").trim(); f.savedAt=Date.now(); f.overall=overallOf(f);
-  try{ await db.doc("apps/"+a.id).update({final:f,status:"agreed"}); toast("Agreed result saved"); }catch{ toast("Couldn't save. Try again."); }
+  try{ const {error}=await db.from("apps").update({final:f,status:"agreed"}).eq("id",a.id); if(error) throw error;
+    agDirty=false; await loadAll(true); toast("Agreed result saved"); }catch{ toast("Couldn't save. Try again."); }
 }
 
 /* ----- Results (owner) ----- */
 function allRows(){
-  const rows=[];
-  allResp.forEach(r=>{ Object.entries(r.data.answers||{}).forEach(([appId,ans])=>{
-    const a=apps.find(x=>x.id===appId); if(!a||!ans.submittedAt) return;
-    rows.push({appId,app:a.name,area:a.area||"",status:a.status||"open",name:ans.name||"",r:ans.ratings||{},overall:overallOf(ans.ratings),mtpd:ans.mtpd,rto:ans.rto,rpo:ans.rpo,note:ans.note||"",submittedAt:ans.submittedAt});
-  });});
-  return rows.sort((x,y)=>x.app.localeCompare(y.app)||x.name.localeCompare(y.name));
+  return respRows.map(r=>{ const a=apps.find(x=>x.id===r.appId); if(!a) return null;
+    return {appId:r.appId,app:a.name,area:a.area||"",status:a.status||"open",name:r.name||"",r:r.ratings||{},overall:overallOf(r.ratings),mtpd:r.mtpd,rto:r.rto,rpo:r.rpo,submittedAt:r.submittedAt}; })
+    .filter(Boolean).sort((x,y)=>x.app.localeCompare(y.app)||x.name.localeCompare(y.name));
 }
 function filtered(){
   return allRows().filter(x=>(!filt.app||x.appId===filt.app)&&(!filt.area||x.area===filt.area)&&(filt.level===""||x.overall===+filt.level)&&(!filt.status||x.status===filt.status));
@@ -524,22 +557,69 @@ async function exportXlsx(){
   const mk=(rows)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{"(no rows)":""}]); const keys=Object.keys(rows[0]||{}); ws["!cols"]=keys.map(k=>({wch:Math.min(40,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)})); return ws;};
   XLSX.utils.book_append_sheet(wb,mk(s1),"Agreed results");
   XLSX.utils.book_append_sheet(wb,mk(s2),"Individual answers");
-  const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
-  const dl=await claude.use("downloads");
-  if(!dl){toast("Downloads aren't available in this view.");return}
-  try{ await dl.save({filename:`app-criticality-${new Date().toISOString().slice(0,10)}.xlsx`,data:buf}); toast("Excel file saved"); }
-  catch(e){ if(e?.code!=="declined") toast("Couldn't save the file."); }
+  try{ XLSX.writeFile(wb,`app-criticality-${new Date().toISOString().slice(0,10)}.xlsx`); toast("Excel file downloaded"); }
+  catch{ toast("Couldn't create the Excel file."); }
 }
 
 /* ----- Applications: add / delete (owner) ----- */
 async function addApp(e){
   e.preventDefault(); const fd=new FormData(e.target); const name=(fd.get("name")||"").trim(); if(!name) return;
-  try{ await db.doc("apps/"+slug(name)).set({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),sessionDate:fd.get("sessionDate")||"",status:"open",createdAt:Date.now()}); addOpen=false; render(); toast(`${name} added`); }
+  try{ const {error}=await db.from("apps").insert({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),session_date:fd.get("sessionDate")||"",status:"open"}); if(error) throw error;
+    addOpen=false; await loadAll(true); toast(`${name} added`); }
   catch{ toast("Couldn't add the application. Try again."); }
 }
 async function delApp(id){
   confirmDel=null;
-  try{ await db.doc("apps/"+id).delete(); await db.doc("reveals/"+id).delete(); toast("Application deleted"); }catch{ toast("Couldn't delete. Try again."); }
+  try{ const {error}=await db.from("apps").delete().eq("id",id); if(error) throw error; await loadAll(true); toast("Application deleted"); }
+  catch{ toast("Couldn't delete. Try again."); render(); }
+}
+
+/* ----- sign-in ----- */
+function loginView(){
+  if(loginMode==="email") return `<form class="login" id="loginEmail">
+    <div class="eyebrow">Facilitator sign-in</div><h2>Sign in with your email</h2>
+    <p class="muted" style="margin:0">We'll send you a sign-in link. Only facilitator emails get the facilitator view.</p>
+    ${loginSent? `<p class="sent" style="margin:0">Check your inbox and open the link on this device.</p>` : `<label class="f">Work email<input id="li-email" name="email" type="email" required autocomplete="email"></label>
+    <button class="primary big-btn" type="submit">Send me a sign-in link</button>`}
+    <div class="alt"><button type="button" class="ghost small" data-act="loginName">← I'm a participant</button></div></form>`;
+  return `<form class="login" id="loginName">
+    <div class="eyebrow">App Criticality Assessment</div><h2>Welcome! What's your name?</h2>
+    <p class="muted" style="margin:0">You'll rate how critical each application is. Your answers stay private until they are revealed in the meeting.</p>
+    <label class="f">Your name<input id="li-name" name="name" required autocomplete="name" placeholder="e.g. Jonas Petraitis"></label>
+    <button class="primary big-btn" type="submit">Start</button>
+    <p class="muted" style="margin:0;font-size:.82rem">Use the same browser to come back and change your answers before the meeting.</p>
+    <div class="alt"><button type="button" class="ghost small" data-act="loginEmail">Facilitator? Sign in with email</button></div></form>`;
+}
+async function startAsGuest(e){
+  e.preventDefault(); const name=(new FormData(e.target).get("name")||"").trim(); if(!name) return;
+  const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true;
+  const {error}=await db.auth.signInAnonymously({options:{data:{name}}});
+  if(error){ btn.disabled=false; toast(/anonymous/i.test(error.message)?"Guest sign-in is switched off in Supabase. Ask the facilitator to enable it.":"Couldn't start. Check your connection and try again."); }
+}
+async function sendLink(e){
+  e.preventDefault(); const email=(new FormData(e.target).get("email")||"").trim(); if(!email) return;
+  const btn=e.target.querySelector("button[type=submit]"); btn.disabled=true;
+  const {error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname,shouldCreateUser:true}});
+  if(error){ btn.disabled=false; toast(/rate/i.test(error.message)?"Too many sign-in emails just now. Wait a few minutes and try again.":"Couldn't send the link. Check the address and try again."); return; }
+  loginSent=true; render();
+}
+
+/* ---------- data loading ---------- */
+const isRls = err => err && (err.code==="42501" || /row-level security/i.test(err.message||""));
+const ms = t => t? Date.parse(t) : null;
+async function loadAll(force){
+  const [a,r,v]=await Promise.all([db.from("apps").select("*"),db.from("responses").select("*"),db.from("reveals").select("*")]);
+  const err=a.error||r.error||v.error;
+  if(err){ loadErr = /relation|does not exist|schema cache/i.test(err.message||"")? "The database tables are missing. Run supabase/schema.sql in the Supabase SQL editor." : "The database didn't answer. Check your connection and try again."; ready.apps=true; render(); return; }
+  loadErr=null;
+  apps=a.data.map(x=>({id:x.id,name:x.name,area:x.area||"",owner:x.owner||"",sessionDate:x.session_date||"",status:x.status||"open",final:x.final||null,createdAt:ms(x.created_at)}));
+  respRows=r.data.map(x=>({uid:x.user_id,appId:x.app_id,name:x.name||"",ratings:x.ratings||{},mtpd:x.mtpd,rto:x.rto,rpo:x.rpo,submittedAt:ms(x.submitted_at),updatedAt:ms(x.updated_at)}));
+  reveals={}; v.data.forEach(x=>reveals[x.app_id]={revealedAt:ms(x.revealed_at),entries:x.entries||[]});
+  const mine=respRows.filter(x=>x.uid===me.id);
+  myDoc={name:me.name, answers:Object.fromEntries(mine.map(x=>[x.appId,x]))};
+  ready.apps=true;
+  const busy = (view==="assess"&&openAppId) || addOpen || agDirty || document.activeElement?.closest?.("#addf,[data-ag],#ag-notes,.login");
+  if(force || !busy) render();
 }
 
 /* ---------- events ---------- */
@@ -560,15 +640,19 @@ document.addEventListener("click",e=>{
   else if(act==="del"){confirmDel=id;render()}
   else if(act==="delNo"){confirmDel=null;render()}
   else if(act==="delYes") delApp(id);
+  else if(act==="loginEmail"){loginMode="email";loginSent=false;render()}
+  else if(act==="loginName"){loginMode="name";render()}
+  else if(act==="signOut") db.auth.signOut();
+  else if(act==="reload"){loadErr=null;loadAll(true)}
 });
 document.addEventListener("change",e=>{
   const t=e.target;
-  if(t.id==="cmp-app"){compareId=t.value;render()}
+  if(t.id==="cmp-app"){compareId=t.value;agDirty=false;render()}
   else if(t.dataset.filt){filt[t.dataset.filt]=t.value;render()}
   else if(t.dataset.ag==="__"){}
-  else if(t.dataset.ag){ const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
+  else if(t.dataset.ag){ agDirty=true; const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
 });
-document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name"){ draft.name=e.target.value; keepDraft(); } });
+document.addEventListener("input",e=>{ if(e.target.id==="ag-notes") agDirty=true; if(!draft) return; if(e.target.id==="f-name"){ draft.name=e.target.value; keepDraft(); } });
 document.addEventListener("keydown",e=>{
   if(view!=="assess"||!openAppId||justDone||e.target.closest("input,textarea,select")||e.metaKey||e.ctrlKey) return;
   const st=STEPS[step]; if(!st||st.k==="review") return;
@@ -576,22 +660,26 @@ document.addEventListener("keydown",e=>{
   if(n>=1&&n<=opts.length){e.preventDefault();pick(st.k,opts[n-1]);}
   else if(e.key==="ArrowLeft"&&step>0) goStep(step-1); else if(e.key==="ArrowRight") goStep(step+1);
 });
-document.addEventListener("submit",e=>{ if(e.target.id==="addf") addApp(e); });
+document.addEventListener("submit",e=>{ if(e.target.id==="addf") addApp(e); else if(e.target.id==="loginName") startAsGuest(e); else if(e.target.id==="loginEmail") sendLink(e); });
 
 /* ---------- boot ---------- */
+let pollT=null;
+async function onSession(sess){
+  session=sess;
+  if(!sess){ me.id=null; me.owner=false; me.name=""; apps=[]; respRows=[]; reveals={}; myDoc=null; openAppId=null; clearInterval(pollT); render(); return; }
+  me.id=sess.user.id;
+  me.name=sess.user.user_metadata?.name||"";
+  me.owner=false;
+  if(!sess.user.is_anonymous){ const {data}=await db.rpc("is_admin"); me.owner=!!data; }
+  await loadAll(true); route();
+  clearInterval(pollT); pollT=setInterval(()=>{ if(!document.hidden) loadAll(false); },15000);
+}
 (async()=>{
-  route();
-  if(!window.claude?.use){ $("#main").innerHTML=`<div class="panel"><h3>Open this page in Claude</h3><p class="muted">The shared assessment store only works inside claude.ai.</p></div>`; return; }
-  [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
-  if(!db){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Sign in to claude.ai with the account the facilitator invited, then reload this page.</p></div>`; return; }
-  if(user){ me.id=await user.id(); me.owner=!!(await user.isOwner()); try{ me.name=(await user.name())||""; }catch{} }
-  if(!me.id){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Your answers are tied to your claude.ai account.</p></div>`; return; }
-  const slow=setTimeout(()=>{ if(!ready.apps){ $("#main").insertAdjacentHTML("afterbegin",`<div class="banner warn">The assessment store isn't answering yet. Data may be missing or out of date.</div>`);} },10000);
-  const onErr=()=>toast("Lost connection to the store. Reload the page to reconnect.");
-  db.collection("apps").onSnapshot(s=>{ apps=s.docs.map(d=>({id:d.id,...d.data()})); if(!s.metadata.fromCache){ready.apps=true;clearTimeout(slow)} if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
-  db.collection("reveals").onSnapshot(s=>{ reveals={}; s.docs.forEach(d=>reveals[d.id]=d.data()); if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
-  db.doc("responses/"+me.id).onSnapshot(s=>{ myDoc=s.exists? s.data():null; if(!openAppId) render(); },()=>{});
-  if(me.owner) db.collection("responses").onSnapshot(s=>{ allResp=s.docs.map(d=>({id:d.id,data:d.data()})); if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
-  route();
+  if(!window.supabase?.createClient){ render(); return; }
+  db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  db.auth.onAuthStateChange((evt,sess)=>{ if(evt==="SIGNED_IN"||evt==="SIGNED_OUT"||evt==="INITIAL_SESSION"){ if((sess?.user?.id||null)!==(session?.user?.id||null)||evt==="INITIAL_SESSION") setTimeout(()=>onSession(sess),0); } });
+  document.addEventListener("visibilitychange",()=>{ if(!document.hidden&&session) loadAll(false); });
 })();
 </script>
+</body>
+</html>

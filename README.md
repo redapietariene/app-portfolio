@@ -2,7 +2,10 @@
 
 A small web tool for running business impact assessments (BIA) of applications with business owners.
 
-Each participant rates an application **on their own** — nobody sees the others' answers until the facilitator reveals them in the meeting. The group then discusses the differences and the facilitator records one agreed result.
+Each participant rates an application **on their own**. Nobody sees the others' answers until the facilitator reveals them in the meeting. The group then discusses the differences and the facilitator records one agreed result.
+
+- **Live app:** https://redapietariene.github.io/app-portfolio/ (after GitHub Pages is switched on, see setup)
+- **Data:** stored in Supabase (Postgres) with row-level security
 
 ## What it assesses
 
@@ -18,33 +21,49 @@ Each participant rates an application **on their own** — nobody sees the other
 | RTO – recovery time objective | 1 h … 3 days (warns if longer than MTPD) |
 | RPO – recovery point objective (data loss) | none … 24 h |
 
-Participants enter only their name and the ratings.
+## Who sees what
 
-## Views
+| | Participant | Facilitator |
+|---|---|---|
+| Sign-in | Types their name (no account, no password) | Email sign-in link; email must be in the `admins` table |
+| Applications page | Answers one question per card | Same, plus add / delete applications |
+| Compare | Sees answers only after the reveal | Reveals, discusses, saves the agreed result |
+| Results + Excel export | – | All applications, filters, `.xlsx` export |
 
-- **Applications** – the list of applications; the facilitator adds or deletes them here. Participants pick an application and answer one question per card (8 taps, auto-advance, keys 1–4 work too), then review and send. Answers can be changed until the reveal.
-- **Compare** – facilitator reveals answers; a side-by-side grid marks each row *Aligned*, *Differs* or *Discuss*; the facilitator sets the agreed values and notes.
-- **Results** (facilitator) – all applications and all individual answers in one place, filterable by application, business area, status and criticality.
-- **Export to Excel** – `.xlsx` with two sheets: *Agreed results* and *Individual answers* (respects current filters).
+Blind answers are enforced by the database, not just hidden by the page: a participant can only read their own answers, and can only write while the application is still collecting answers.
 
-## How it runs
+## Setup (one time)
 
-`index.html` is a single-page Claude Artifact. It uses the Artifact runtime capabilities:
+### 1. Create the tables in Supabase
+1. Open the Supabase project → **SQL Editor** → **New query**.
+2. Paste the contents of [`supabase/schema.sql`](supabase/schema.sql).
+3. At the bottom, replace `YOUR-EMAIL@example.com` with the facilitator's email.
+4. Click **Run**.
 
-- `db` – shared storage with access rules:
-  - `apps/*`, `reveals/*` – everyone reads, only editors/owner write
-  - `responses/<user-id>` – each participant reads and writes only their own document; only the owner can read all of them (that is what keeps the answers blind)
-- `user` – identifies the viewer and whether they are the facilitator (artifact owner)
-- `downloads` – saving the Excel export
+### 2. Switch on sign-in
+In Supabase → **Authentication**:
+- **Sign In / Providers** → turn on **Allow anonymous sign-ins** (this is how participants join by name). **Email** stays on (facilitator sign-in).
+- **URL Configuration** → set **Site URL** to `https://redapietariene.github.io/app-portfolio/` and add the same address under **Redirect URLs**.
 
-The Excel file is built in the browser with [SheetJS](https://sheetjs.com/) (loaded from cdnjs).
-
-Because it relies on these capabilities, the page works when opened on claude.ai, not as a standalone file.
+### 3. Publish the page
+GitHub repo → **Settings** → **Pages** → Source: **Deploy from a branch**, branch `main`, folder `/ (root)` → **Save**. The link appears after a minute or two.
 
 ## Running a session
 
-1. Add the application on the **Applications** page (*+ Add application*).
-2. Share the artifact with the participants (Contributor within your organization; Editor for people outside it).
-3. Everyone opens the application on the **Applications** page and answers before or at the start of the meeting.
-4. In the meeting open **Compare**, press *Reveal*, discuss the rows marked *Discuss*, then *Save agreed result*.
-5. Export from **Results** when all applications are done.
+1. Facilitator signs in with email and adds the application (**+ Add application**).
+2. Send participants the link. They type their name and answer (about 2 minutes).
+3. In the meeting open **Compare** → **Reveal answers**, discuss the rows marked *Discuss*, set the agreed values → **Save agreed result**.
+4. When all applications are done: **Results** → **Export to Excel**.
+
+## Good to know
+
+- Participants come back in the **same browser** to change answers before the reveal (their sign-in is remembered there).
+- Supabase limits anonymous sign-ins to 30 per hour per IP address by default. If a whole office joins at once from one network, raise it under **Authentication → Rate Limits**.
+- Supabase's built-in email sender only sends a few emails per hour. That's fine for the facilitator's sign-in link.
+- The Supabase publishable key in `index.html` is meant to be public. Access is controlled by the row-level security rules in `schema.sql`.
+
+## Files
+
+- `index.html` – the app (single page, no build step)
+- `supabase/schema.sql` – tables, access rules and facilitator list
+- `claude-artifact/index.html` – the earlier version that ran as a Claude artifact

@@ -1,0 +1,597 @@
+<title>App Criticality Assessment</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: calm product UI — frosted sticky header with a segmented view switcher, one 1160px column, elevated white surfaces on a cool canvas, traffic-light semantics kept apart from the cobalt accent. */
+:root{
+  --bg:#f3f5fa; --surface:#ffffff; --sunk:#eef1f7; --line:#e2e7f0; --line-2:#cfd6e3;
+  --fg:#111a2e; --muted:#5f6b82; --faint:#8a94a8;
+  --accent:#3454e0; --accent-2:#5b78f0; --accent-fg:#ffffff; --accent-soft:#ebefff;
+  --low:#16884a; --low-soft:#e3f5ea; --med:#c75a0c; --med-soft:#fdf0e3; --crit:#cc2a36; --crit-soft:#fde8ea;
+  --glass:rgba(255,255,255,.78);
+  --sh-1:0 1px 2px rgba(17,26,46,.05),0 1px 3px rgba(17,26,46,.05);
+  --sh-2:0 2px 4px rgba(17,26,46,.04),0 8px 24px -6px rgba(17,26,46,.10);
+  --sh-3:0 4px 8px rgba(17,26,46,.04),0 24px 48px -12px rgba(17,26,46,.18);
+  --r-sm:8px; --r:12px; --r-lg:20px;
+  --f-display:"Manrope","Segoe UI",system-ui,sans-serif;
+  --f-body:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"Inter","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c111c; --surface:#151c2b; --sunk:#1b2334; --line:#262f42; --line-2:#344058;
+  --fg:#e8edf7; --muted:#9aa5bb; --faint:#6f7a91;
+  --accent:#7c94ff; --accent-2:#9aaeff; --accent-fg:#0b1230; --accent-soft:#1e2a52;
+  --low:#4fcf86; --low-soft:#13301f; --med:#f5a157; --med-soft:#3a2511; --crit:#ff7a83; --crit-soft:#401a20;
+  --glass:rgba(21,28,43,.78);
+  --sh-1:0 1px 2px rgba(0,0,0,.3); --sh-2:0 8px 24px -8px rgba(0,0,0,.5); --sh-3:0 24px 48px -12px rgba(0,0,0,.6);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c111c; --surface:#151c2b; --sunk:#1b2334; --line:#262f42; --line-2:#344058;
+  --fg:#e8edf7; --muted:#9aa5bb; --faint:#6f7a91;
+  --accent:#7c94ff; --accent-2:#9aaeff; --accent-fg:#0b1230; --accent-soft:#1e2a52;
+  --low:#4fcf86; --low-soft:#13301f; --med:#f5a157; --med-soft:#3a2511; --crit:#ff7a83; --crit-soft:#401a20;
+  --glass:rgba(21,28,43,.78);
+  --sh-1:0 1px 2px rgba(0,0,0,.3); --sh-2:0 8px 24px -8px rgba(0,0,0,.5); --sh-3:0 24px 48px -12px rgba(0,0,0,.6);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.02em}
+h1{font-size:1.02rem;font-weight:800}
+h2{font-size:clamp(1.5rem,3vw,1.85rem);font-weight:800}
+h3{font-size:1.05rem;font-weight:700}
+a{color:var(--accent)}
+.wrap{max-width:1160px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* header */
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--glass);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-bottom:1px solid var(--line)}
+.hdr{display:flex;align-items:center;gap:12px 20px;flex-wrap:wrap;padding-block:10px}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.logo{width:34px;height:34px;flex:none;border-radius:10px;display:grid;place-items:center;background:linear-gradient(140deg,var(--accent),var(--accent-2));box-shadow:0 4px 12px -4px var(--accent)}
+.logo svg{width:20px;height:20px}
+.logo rect{fill:var(--accent-fg)}
+.brand-t{display:grid;line-height:1.15;min-width:0}
+.brand small{color:var(--muted);font-size:.76rem;font-weight:500}
+nav{display:flex;gap:2px;padding:4px;border-radius:12px;background:var(--sunk);border:1px solid var(--line)}
+nav a{padding:6px 14px;border-radius:9px;color:var(--muted);text-decoration:none;font-weight:600;font-size:.88rem;transition:color .15s,background .15s}
+nav a:hover{color:var(--fg)}
+nav a[aria-current="page"]{background:var(--surface);color:var(--fg);box-shadow:var(--sh-1)}
+
+main{padding-block:32px 72px;display:grid;gap:22px}
+.lede{color:var(--muted);max-width:62ch;margin:6px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 22px;box-shadow:var(--sh-1)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+label.f{display:grid;gap:6px;font-size:.8rem;font-weight:600;color:var(--muted);min-width:0}
+input,select,textarea{font:inherit;font-size:.93rem;color:var(--fg);background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:9px 12px;width:100%;transition:border-color .15s,box-shadow .15s}
+input:hover,select:hover,textarea:hover{border-color:var(--faint)}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+textarea{resize:vertical;min-height:40px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* buttons */
+button{font:inherit;font-weight:600;font-size:.9rem;cursor:pointer;border-radius:10px;padding:9px 16px;border:1px solid var(--line-2);background:var(--surface);color:var(--fg);box-shadow:var(--sh-1);transition:background .15s,transform .15s,box-shadow .15s,border-color .15s}
+button:hover{background:var(--sunk)}
+button:active{transform:translateY(1px)}
+button.primary{background:var(--accent);border-color:transparent;color:var(--accent-fg);box-shadow:0 1px 2px rgba(17,26,46,.12),0 6px 16px -6px var(--accent)}
+button.primary:hover{background:var(--accent);filter:brightness(1.07)}
+button.danger{color:var(--crit);border-color:var(--crit);background:var(--surface)}
+button.small{padding:5px 11px;font-size:.83rem;border-radius:8px}
+button.ghost{border-color:transparent;background:transparent;color:var(--muted);box-shadow:none}
+button.ghost:hover{color:var(--fg);background:var(--sunk)}
+button.ghost.danger{color:var(--muted)}button.ghost.danger:hover{color:var(--crit);background:var(--crit-soft)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
+
+.muted{color:var(--muted)}
+.mono{font-variant-numeric:tabular-nums;font-weight:500}
+.eyebrow{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
+
+/* status + level badges */
+.pill,.cell{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 9px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap;line-height:1.4}
+.pill::before,.cell::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.st-open{background:var(--accent-soft);color:var(--accent)}
+.st-revealed{background:var(--med-soft);color:var(--med)}
+.st-agreed{background:var(--low-soft);color:var(--low)}
+.lv0{background:var(--low-soft);color:var(--low)}
+.lv1{background:var(--med-soft);color:var(--med)}
+.lv2{background:var(--crit-soft);color:var(--crit)}
+.banner{padding:12px 16px;border-radius:var(--r);background:var(--sunk);border:1px solid var(--line)}
+.banner.warn{background:var(--med-soft);border-color:transparent;color:var(--fg)}
+
+/* application cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{display:flex;flex-direction:column;border-radius:var(--r-lg);border:1px solid var(--line);background:var(--surface);overflow:hidden;box-shadow:var(--sh-1);transition:transform .18s,box-shadow .18s,border-color .18s}
+.card:hover{transform:translateY(-3px);box-shadow:var(--sh-2);border-color:var(--line-2)}
+.card-main{display:flex;flex-direction:column;align-items:stretch;gap:10px;flex:1;text-align:left;padding:18px 20px;border:0;border-radius:0;background:transparent;font-weight:400;width:100%;box-shadow:none}
+.card-main:hover{background:transparent}
+.card-main:active{transform:none}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.card-top h3{font-size:1.12rem;min-width:0;overflow-wrap:anywhere}
+.mark{width:40px;height:40px;flex:none;border-radius:12px;display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:1rem;background:var(--accent-soft);color:var(--accent)}
+.card-id{display:flex;gap:12px;align-items:center;min-width:0}
+.card .meta{font-size:.83rem;color:var(--muted)}
+.card-status{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:auto;padding-top:4px;font-size:.83rem;color:var(--muted)}
+.me-done{color:var(--low);font-weight:600}
+.me-go{color:var(--accent);font-weight:600}
+.card-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 10px 6px 20px;border-top:1px solid var(--line);background:var(--sunk)}
+.card .confirm{margin:10px;border-radius:10px}
+.card-foot .row{flex-wrap:nowrap}.card-foot .meta{white-space:nowrap}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-radius:10px;background:var(--crit-soft);font-size:.86rem}
+
+/* tables */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-1)}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-weight:600;font-size:.74rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);white-space:nowrap;background:var(--surface)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:not(.grp-h):not(.tot-r):hover td{background:var(--sunk)}
+td.c,th.c{text-align:center}
+td select{width:auto;min-width:130px;padding:6px 10px;font-size:.85rem;border-radius:8px}
+.grp-h td{background:var(--bg);font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--faint);padding-block:14px 8px}
+.dim-r td:first-child{padding-left:26px;position:relative}
+.dim-r td:first-child::before{content:"";position:absolute;left:14px;top:0;bottom:0;width:2px;background:var(--line-2)}
+.tot-r td{background:var(--accent-soft);border-bottom:0}
+.tot-r td:first-child{position:relative;padding-left:26px}
+.tot-r td:first-child::before{content:"";position:absolute;left:14px;top:0;height:50%;width:2px;background:var(--line-2)}
+.tot-r td:first-child::after{content:"";position:absolute;left:11px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--accent)}
+.tot-r .cell{font-size:.84rem;padding:5px 12px 5px 11px;box-shadow:inset 0 0 0 1.5px currentColor}
+.tot-l{display:grid;gap:1px}.tot-l b{font-family:var(--f-display);font-weight:800}.tot-l small{color:var(--muted);font-size:.75rem;white-space:nowrap}
+.gap0,.gap1,.gap2{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600}
+.gap0{color:var(--low)}.gap1{color:var(--med)}.gap2{color:var(--crit)}
+.gap2::before{content:"!";display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--crit);color:var(--surface);font-size:.7rem;font-weight:800}
+.comments{display:grid;gap:6px;margin:0;padding:0;list-style:none;font-size:.86rem}
+.comments li{padding:8px 12px;background:var(--sunk);border-radius:10px}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:12px;font-weight:600;font-size:.9rem;z-index:20;box-shadow:var(--sh-3);animation:rise .25s ease-out}
+@keyframes rise{from{transform:translate(-50%,10px);opacity:0}}
+
+/* assessment wizard */
+.wiz{display:grid;gap:18px;max-width:640px;width:100%;margin:0 auto}
+.wiz-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.app-chip{display:inline-flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-weight:600;font-size:.85rem;box-shadow:var(--sh-1)}
+.app-chip .mark{width:24px;height:24px;border-radius:999px;font-size:.72rem}
+.prog{display:flex;gap:6px}
+.seg{flex:1;height:6px;padding:0;border-radius:99px;border:0;background:var(--line-2);box-shadow:none;transition:background .2s}
+.seg.filled{background:var(--accent)}
+.seg.cur{background:var(--accent-2);box-shadow:0 0 0 3px var(--accent-soft)}
+.seg:hover{background:var(--faint)}.seg.filled:hover{background:var(--accent)}
+.q{display:grid;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:24px;padding:32px 28px;box-shadow:var(--sh-2)}
+.q.anim{animation:pop .3s cubic-bezier(.2,.8,.2,1)}
+.q h2{font-size:clamp(1.45rem,4.5vw,1.95rem);line-height:1.2}
+.q .hl{background:linear-gradient(120deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.q .hint{margin:-8px 0 0}
+.scenario{margin:0 0 -10px;font-family:var(--f-display);font-size:clamp(1.45rem,4.5vw,1.95rem);font-weight:800;line-height:1.2;letter-spacing:-.02em;color:var(--fg);text-wrap:pretty}
+@keyframes pop{from{transform:translateY(12px);opacity:.2}to{transform:none;opacity:1}}
+.picks{display:grid;gap:10px}
+.pick{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;padding:14px 16px;border-radius:16px;border:1.5px solid var(--line);background:var(--surface);font-weight:400;box-shadow:none;transition:transform .15s,border-color .15s,background .15s,box-shadow .15s}
+.pick:hover{transform:translateY(-2px);background:var(--surface);box-shadow:var(--sh-2)}
+.pick .pt{display:grid;gap:1px;min-width:0}
+.pick b{font-family:var(--f-display);font-size:1.05rem;font-weight:800}
+.pick .pt span{color:var(--muted)}
+.pick kbd{font-family:var(--f-body);font-size:.72rem;font-weight:600;color:var(--faint);border:1px solid var(--line);border-radius:6px;padding:1px 7px;background:var(--sunk)}
+.pick.l0 b{color:var(--low)}.pick.l1 b{color:var(--med)}.pick.l2 b{color:var(--crit)}
+.pick.l0:hover,.pick.l0.on{border-color:var(--low)}.pick.l0.on{background:var(--low-soft);box-shadow:0 0 0 4px var(--low-soft)}
+.pick.l1:hover,.pick.l1.on{border-color:var(--med)}.pick.l1.on{background:var(--med-soft);box-shadow:0 0 0 4px var(--med-soft)}
+.pick.l2:hover,.pick.l2.on{border-color:var(--crit)}.pick.l2.on{background:var(--crit-soft);box-shadow:0 0 0 4px var(--crit-soft)}
+.pick.on .pt span{color:var(--fg)}
+.bars{display:inline-flex;align-items:flex-end;gap:3px;height:24px;padding:8px;box-sizing:content-box;border-radius:12px;background:var(--sunk)}
+.bars i{display:block;width:6px;border-radius:3px;background:var(--line-2)}
+.bars i:nth-child(1){height:8px}.bars i:nth-child(2){height:15px}.bars i:nth-child(3){height:24px}
+.pick.on .bars{background:var(--surface)}
+.l0 .bars i.on,.lv0 .bars i.on{background:var(--low)}.l1 .bars i.on,.lv1 .bars i.on{background:var(--med)}.l2 .bars i.on,.lv2 .bars i.on{background:var(--crit)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.tile{display:grid;gap:2px;place-items:center;padding:20px 10px;border-radius:16px;border:1.5px solid var(--line);background:var(--surface);box-shadow:none;transition:transform .15s,border-color .15s,box-shadow .15s}
+.tile b{font-family:var(--f-display);font-size:1.25rem;font-weight:800}
+.tile small{color:var(--muted);font-weight:500;font-size:.75rem}
+.tile:hover{transform:translateY(-2px);border-color:var(--accent);background:var(--surface);box-shadow:var(--sh-2)}
+.tile.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 4px var(--accent-soft)}
+.tile.on b{color:var(--accent)}
+.big-btn{padding:14px 22px;font-size:1rem;border-radius:14px;width:100%}
+.intro{gap:18px;padding-block:40px}
+.verdict{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;background:var(--sunk)}
+.verdict>span:first-child{color:var(--muted);font-weight:600;flex:1}
+.verdict b{font-family:var(--f-display);font-size:1.6rem;font-weight:800}
+.verdict.lv0,.verdict.lv1,.verdict.lv2{color:inherit}
+.verdict.lv0{background:var(--low-soft)}.verdict.lv1{background:var(--med-soft)}.verdict.lv2{background:var(--crit-soft)}
+.verdict.lv0 b{color:var(--low)}.verdict.lv1 b{color:var(--med)}.verdict.lv2 b{color:var(--crit)}
+.verdict .bars{background:var(--surface)}
+.recap{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.rc{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;border:1px solid var(--line);background:var(--surface);font-weight:500;font-size:.85rem;text-align:left;box-shadow:none}
+.rc span{color:var(--muted)}
+.rc:disabled{opacity:1;cursor:default}
+.rc b{font-size:.8rem;flex:none}
+.done{text-align:center;justify-items:center;padding-block:44px}
+.tick{width:76px;height:76px}
+.tick circle{fill:var(--low-soft);stroke:var(--low);stroke-width:2.5}
+.tick path{fill:none;stroke:var(--low);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:48;stroke-dashoffset:0;animation:draw .5s .1s ease-out backwards}
+@keyframes draw{from{stroke-dashoffset:48}}
+@media (max-width:640px){.q{padding:24px 18px;border-radius:20px}.pick kbd{display:none}.panel{padding:16px}.brand small{display:none}nav{width:100%}nav a{flex:1;text-align:center;padding-inline:8px}main{padding-block:22px 56px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header><div class="wrap hdr">
+  <div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 20 20"><rect x="2" y="11" width="4" height="7" rx="1.5" opacity=".55"/><rect x="8" y="7" width="4" height="11" rx="1.5" opacity=".8"/><rect x="14" y="2" width="4" height="16" rx="1.5"/></svg></span><div class="brand-t"><h1>App Criticality Assessment</h1><small id="who"></small></div></div>
+  <nav id="nav" aria-label="Views"></nav>
+</div></header>
+<main class="wrap" id="main">
+  <div class="panel"><p class="muted" style="margin:0">Connecting to the shared assessment store…</p></div>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/* ---------- reference data (from the assessment form) ---------- */
+const LV = ["Low","Medium","Critical"];
+const DIMS = [
+  {k:"ops", label:"Business operations impact", q:"How would it affect business?", d:["Minor disruption, work goes on","Main business processes disrupted","Critical business processes stop"]},
+  {k:"cust",label:"Customers affected", q:"How would it affect customers?", d:["A few customers affected, not VIP","A significant group of customers affected","Most or all customers affected"]},
+  {k:"fin", label:"Financial impact", q:"How much money could we lose?", d:["A minor loss","A noticeable loss","A significant loss"]},
+  {k:"legal",label:"Legal / compliance impact", q:"Any legal or compliance trouble?", d:["Nothing significant","Minor issues","Serious regulatory consequences"]},
+  {k:"rep", label:"Reputation impact", q:"What would it do to our reputation?", d:["Few or no complaints","Lots of complaints","Damage and bad press"]}
+];
+const MTPD = [{v:2,l:"2 hours",t:"Low tolerance"},{v:8,l:"8 hours",t:"Medium tolerance"},{v:24,l:"24 hours",t:"High tolerance"},{v:72,l:"More than 24 h",t:"Very high tolerance"}];
+const RTO  = [{v:1,l:"1 hour"},{v:2,l:"2 hours"},{v:4,l:"4 hours"},{v:8,l:"8 hours"},{v:24,l:"24 hours"},{v:72,l:"3 days"}];
+const RPO  = [{v:0,l:"No data loss"},{v:0.25,l:"15 minutes"},{v:1,l:"1 hour"},{v:4,l:"4 hours"},{v:24,l:"24 hours"}];
+const lbl = (arr,v)=> (arr.find(o=>o.v===v)||{}).l || "—";
+const mtpdLevel = v => v==null?null : v<=2?2 : v<=8?1 : 0;
+const overallOf = r => { const vals = DIMS.map(d=>r?.[d.k]).filter(v=>v!=null); return vals.length? Math.max(...vals) : null; };
+
+/* ---------- state ---------- */
+let db=null, user=null;
+const me={id:null,owner:false,name:""};
+let apps=[], reveals={}, myDoc=null, allResp=[];
+let ready={apps:false};
+let addOpen=false;
+let view="assess", openAppId=null, compareId=null, draft=null;
+const filt={app:"",area:"",level:"",status:""};
+let confirmDel=null;
+
+/* ---------- helpers ---------- */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = t=> t? new Date(t).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : "—";
+const lvCell = v=> v==null? '<span class="muted">—</span>' : `<span class="cell lv${v}">${LV[v]}</span>`;
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
+const statusPill = s=>`<span class="pill st-${s||"open"}">${s==="revealed"?"Answers revealed":s==="agreed"?"Agreed":"Collecting answers"}</span>`;
+const slug = s=> (String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"app")+"-"+Math.random().toString(36).slice(2,7);
+function answersFor(appId){ // owner only: live answers
+  return allResp.map(r=>({uid:r.id, ...(r.data.answers?.[appId]||{})})).filter(a=>a.submittedAt);
+}
+function countFor(appId){ return me.owner? answersFor(appId).length : (reveals[appId]?.entries?.length ?? null); }
+
+/* ---------- routing ---------- */
+function views(){ return me.owner? [["assess","Applications"],["compare","Compare"],["results","Results"]] : [["assess","Applications"],["compare","Compare"]]; }
+function route(){ const h=location.hash.slice(1); view = views().some(v=>v[0]===h)? h : "assess"; render(); }
+addEventListener("hashchange",route);
+
+/* ---------- render ---------- */
+function render(){
+  $("#nav").innerHTML = views().map(([k,l])=>`<a href="#${k}" ${k===view?'aria-current="page"':""}>${l}</a>`).join("");
+  $("#who").textContent = me.id? (me.owner? "Facilitator view" : "Participant view") : "";
+  if(!db){return}
+  const m=$("#main");
+  if(view==="assess") m.innerHTML = openAppId? assessForm() : assessList();
+  else if(view==="compare") m.innerHTML = compareView();
+  else if(view==="results") m.innerHTML = resultsView();
+}
+
+/* ----- Assess: list ----- */
+function assessList(){
+  const list = apps.filter(a=>a.status!=="archived").sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  const mine = myDoc?.answers||{};
+  const intro = `<div class="row between" style="align-items:flex-end"><div><h2>Applications</h2>
+    <p class="lede">Pick an application and answer on your own. Nobody sees your answers until they are revealed in the meeting.</p></div>
+    ${me.owner&&!addOpen?`<button class="primary" data-act="addOpen">+ Add application</button>`:""}</div>`;
+  const form = me.owner&&addOpen? `<form class="panel" id="addf" style="display:grid;gap:12px"><h3>New application</h3>
+    <div class="grid2">
+      <label class="f">Application name<input id="n-name" name="name" required placeholder="e.g. Amber"></label>
+      <label class="f">Business area <span style="font-weight:400">(optional)</span><input id="n-area" name="area" placeholder="e.g. Finance" list="areas"></label>
+      <label class="f">Responsible <span style="font-weight:400">(optional)</span><input id="n-owner" name="owner"></label>
+      <label class="f">Session date <span style="font-weight:400">(optional)</span><input id="n-date" name="sessionDate" type="date"></label>
+    </div>
+    <datalist id="areas">${[...new Set(apps.map(a=>a.area).filter(Boolean))].map(a=>`<option value="${esc(a)}">`).join("")}</datalist>
+    <div class="row"><button class="primary" type="submit">Add application</button><button type="button" class="ghost" data-act="addClose">Cancel</button></div>
+  </form>` : "";
+  if(!ready.apps) return intro+form+`<div class="panel muted">Loading applications…</div>`;
+  if(!list.length) return intro+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one. Participants will see it here.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
+  return intro+form+`<div class="cards">${list.map(a=>{
+    const done = mine[a.id]?.submittedAt;
+    const ownerBar = !me.owner? "" : confirmDel===a.id
+      ? `<div class="confirm" style="font-size:.85rem">Delete ${esc(a.name)} and all its answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></div>`
+      : `<div class="card-foot"><span class="meta">${countFor(a.id)} answer${countFor(a.id)===1?"":"s"} in</span><span class="row" style="gap:4px"><button class="small ghost" data-act="goCompare" data-id="${a.id}">Compare</button><button class="small ghost danger" data-act="del" data-id="${a.id}" aria-label="Delete ${esc(a.name)}">Delete</button></span></div>`;
+    return `<div class="card">
+      <button class="card-main" data-act="openApp" data-id="${a.id}">
+        <span class="card-top"><span class="card-id"><span class="mark" aria-hidden="true">${esc((a.name||"?").trim().slice(0,1).toUpperCase())}</span><span style="display:grid;gap:2px;min-width:0"><h3>${esc(a.name)}</h3><span class="meta">${esc(a.area||"No business area")}${a.owner?` · ${esc(a.owner)}`:""}</span></span></span></span>
+        ${a.sessionDate?`<span class="meta">Session ${esc(a.sessionDate)}</span>`:""}
+        <span class="card-status">${statusPill(a.status)}${a.final?.savedAt&&a.final.overall!=null?`<span class="cell lv${a.final.overall}">${LV[a.final.overall]}</span>`:""}${done? `<span class="me-done">✓ You answered</span>` : a.status==="open"? `<span class="me-go">Start →</span>` : ""}</span>
+      </button>${ownerBar}
+    </div>`}).join("")}</div>`;
+}
+
+/* ----- Assess: one question per card ----- */
+const STEPS=[...DIMS.map(d=>({k:d.k,type:"lv"})),{k:"mtpd",type:"time"},{k:"rto",type:"time"},{k:"rpo",type:"time"},{k:"review"}];
+const TIMEQ={
+  mtpd:{q:"How long can the business live without it?",hint:"After this long, critical damage starts.",arr:MTPD},
+  rto:{q:"How fast must it be restored?",hint:"Pick a time shorter than your answer to the previous question, so it's back before the impact gets serious.",arr:RTO},
+  rpo:{q:"How much recent work could you afford to lose?",hint:"Anything entered after the last backup would need redoing.",arr:RPO}
+};
+let step=0, justDone=false, advT=null, shownStep=null;
+const bars=n=>`<span class="bars" aria-hidden="true">${[0,1,2].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`;
+function valueOf(k){ return k==="mtpd"||k==="rto"||k==="rpo"? draft[k] : draft.ratings?.[k]; }
+function answerLabel(st){ const v=valueOf(st.k); if(v==null) return null; return st.type==="lv"? LV[v] : lbl(TIMEQ[st.k].arr,v); }
+function hintFor(k,t){
+  if(k!=="rto"||draft?.mtpd==null) return t.hint;
+  const lim = draft.mtpd===72? "more than 24 hours" : "up to "+lbl(MTPD,draft.mtpd);
+  return `You said the business can manage ${lim} without it. Pick a shorter time, so it's back before the impact gets serious.`;
+}
+const scenario = a => `<p class="scenario">Imagine ${esc(a.name)} stops working…</p>`;
+function assessForm(){
+  const a = apps.find(x=>x.id===openAppId);
+  if(!a){openAppId=null;return assessList()}
+  const saved = myDoc?.answers?.[a.id];
+  if(!draft){ const local=loadDraft(a.id); draft = (local && (!saved || (local.savedLocal||0)>(saved.updatedAt||0)))? local : JSON.parse(JSON.stringify(saved||{ratings:{},name:myDoc?.name||me.name||""})); }
+  const locked = a.status!=="open";
+  const top = `<div class="wiz wiz-top"><button class="small ghost" data-act="back">← Applications</button><span class="app-chip"><span class="mark" aria-hidden="true">${esc((a.name||"?").trim().slice(0,1).toUpperCase())}</span>${esc(a.name)}</span></div>`;
+  if(justDone) return top+`<section class="wiz" id="wiz"><div class="q done">
+      <svg class="tick" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="29"/><path d="M19 33l9 9 17-19"/></svg>
+      <h2>Thanks, you're done!</h2><p class="muted">Your answers for <b>${esc(a.name)}</b> stay sealed until the reveal in the meeting.</p>
+      <div class="row" style="justify-content:center"><button class="primary" data-act="back">Rate another application</button></div></div></section>`;
+  if(locked) step=STEPS.length-1;
+  const total=STEPS.length-1;
+  if(step===-1) return top+`<section class="wiz" id="wiz"><div class="q intro">
+      <div class="eyebrow">Impact check</div><h2>What if <span class="hl">${esc(a.name)}</span> stopped working?</h2>
+      <p class="muted">8 quick taps, about two minutes. Go with your gut, there are no wrong answers. Nobody sees your picks until the meeting.</p>
+      <div><button class="primary big-btn" data-act="go" data-step="0">Let's start</button></div></div></section>`;
+  const st=STEPS[step];
+  const prog = `<div class="prog" aria-label="Question ${Math.min(step+1,total)} of ${total}">${STEPS.slice(0,total).map((x,i)=>`<button class="seg ${valueOf(x.k)!=null?"filled":""} ${i===step?"cur":""}" data-act="go" data-step="${i}" aria-label="Question ${i+1}" ${locked?"disabled":""}></button>`).join("")}</div>`;
+  let body="";
+  if(st.type==="lv"){
+    const d=DIMS.find(x=>x.k===st.k); const cur=draft.ratings?.[st.k];
+    body=`<div class="eyebrow">${step+1} of ${total} · ${d.label}</div>${scenario(a)}<h2>${d.q}</h2>
+      <div class="picks">${d.d.map((t,i)=>`<button class="pick l${i} ${cur===i?"on":""}" data-act="pick" data-k="${st.k}" data-v="${i}" aria-pressed="${cur===i}">${bars(i)}<span class="pt"><b>${LV[i]}</b><span>${t}</span></span><kbd>${i+1}</kbd></button>`).join("")}</div>`;
+  } else if(st.type==="time"){
+    const t=TIMEQ[st.k]; const cur=draft[st.k];
+    body=`<div class="eyebrow">${step+1} of ${total}</div>${scenario(a)}<h2>${t.q}</h2><p class="muted hint">${hintFor(st.k,t)}</p>
+      <div class="tiles">${t.arr.map((o,i)=>`<button class="tile ${cur===o.v?"on":""}" data-act="pick" data-k="${st.k}" data-v="${o.v}" aria-pressed="${cur===o.v}"><b>${o.l}</b>${o.t?`<small>${o.t}</small>`:""}</button>`).join("")}</div>`;
+  } else {
+    const ov=overallOf(draft.ratings);
+    const bad = draft.rto!=null && draft.mtpd!=null && draft.mtpd!==72 && draft.rto>draft.mtpd;
+    const missing = STEPS.slice(0,total).filter(x=>valueOf(x.k)==null && x.k!=="rpo");
+    body=`<div class="eyebrow">${locked?"Your answers":"Last step"}</div>
+      <div class="verdict ${ov==null?"":"lv"+ov}"><span>${ov==null?"Not rated yet":"Your verdict"}</span><b>${ov==null?"—":LV[ov]}</b>${ov==null?"":bars(ov)}</div>
+      <div class="recap">${STEPS.slice(0,total).map((x,i)=>{const v=answerLabel(x); const lvv=x.type==="lv"?valueOf(x.k):x.k==="mtpd"?mtpdLevel(draft.mtpd):null;
+        return `<button class="rc" data-act="go" data-step="${i}" ${locked?"disabled":""}><span>${x.type==="lv"?DIMS.find(d=>d.k===x.k).label.replace(" impact",""):x.k.toUpperCase()}</span>${v?`<b class="${lvv!=null?"cell lv"+lvv:"mono"}">${v}</b>`:`<b class="muted">Tap to answer</b>`}</button>`}).join("")}</div>
+      ${bad?`<p class="banner warn" style="margin:0">Recovery (${lbl(RTO,draft.rto)}) is slower than the time the business can manage without it (${lbl(MTPD,draft.mtpd)}). Worth a second look?</p>`:""}
+      <label class="f">Your name<input id="f-name" name="name" value="${esc(draft.name)}" ${locked?"disabled":""}></label>
+      ${locked? `<p class="banner warn" style="margin:0">Answers are closed. See the group comparison under <a href="#compare">Compare</a>.</p>`
+        : `<button class="primary big-btn" data-act="submit" ${missing.length?"disabled":""}>${missing.length?`${missing.length} question${missing.length>1?"s":""} left`:saved?"Update my answers":"Send my answers"}</button>`}`;
+  }
+  const nav = st.type==="review"||locked? (locked?"":`<div class="row between"><button class="small ghost" data-act="go" data-step="${step-1}">← Back</button><span></span></div>`)
+    : `<div class="row between"><button class="small ghost" data-act="go" data-step="${step-1}" ${step===0?"disabled":""}>← Back</button><button class="small ghost" data-act="go" data-step="${step+1}">Next →</button></div>`;
+  const anim = shownStep!==step; shownStep=step;
+  return top+`<section class="wiz" id="wiz">${locked?"":prog}<div class="q ${anim?"anim":""}" id="q-${st.k}">${body}</div>${nav}</section>`;
+}
+function draftKey(id){ return "aca-draft:"+(me.id||"")+":"+id; }
+function loadDraft(id){ try{ const v=localStorage.getItem(draftKey(id)); return v? JSON.parse(v) : null; }catch{ return null; } }
+function keepDraft(){ if(!openAppId||!draft) return; try{ localStorage.setItem(draftKey(openAppId), JSON.stringify({...draft,savedLocal:Date.now()})); }catch{} }
+function dropDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch{} }
+function goStep(n){ clearTimeout(advT); step=Math.max(0,Math.min(STEPS.length-1,n)); render(); }
+function pick(k,v){
+  if(k==="mtpd"||k==="rto"||k==="rpo") draft[k]=v; else draft.ratings={...draft.ratings,[k]:v};
+  keepDraft();
+  render(); clearTimeout(advT); advT=setTimeout(()=>goStep(step+1),320);
+}
+function updateSummary(){}
+async function submitForm(){
+  const nm=$("#f-name"); if(nm) draft.name=nm.value;
+  if(!draft.name.trim()){toast("Add your name so the group knows whose answer it is");nm?.focus();return}
+  const now=Date.now(); const prev=myDoc?.answers?.[openAppId];
+  const ans={name:draft.name.trim(),ratings:draft.ratings,mtpd:draft.mtpd??null,rto:draft.rto??null,rpo:draft.rpo??null,submittedAt:prev?.submittedAt||now,updatedAt:now};
+  const btn=document.querySelector('[data-act="submit"]'); if(btn) btn.disabled=true;
+  try{
+    const answers={...(myDoc?.answers||{})}; answers[openAppId]=ans;
+    await db.doc("responses/"+me.id).set({name:ans.name,updatedAt:now,answers});
+    dropDraft(openAppId); justDone=true; render();
+  }catch(err){ toast(err?.code==="invalid_argument"?"You don't have permission to answer here. Ask the facilitator to give you Contributor or Editor access.":"Couldn't save. Check your connection and try again."); if(btn) btn.disabled=false; }
+}
+
+/* ----- Compare ----- */
+function compareRows(entries, final){
+  const rows = [
+    ...DIMS.map(d=>({k:d.k,label:d.label,vals:entries.map(e=>e.ratings?.[d.k]),kind:"lv"})),
+    {k:"overall",label:"Overall criticality",vals:entries.map(e=>overallOf(e.ratings)),kind:"lv",bold:true},
+    {k:"mtpd",label:"Tolerable outage (MTPD)",vals:entries.map(e=>e.mtpd),kind:"mtpd"},
+    {k:"rto",label:"Recovery time (RTO)",vals:entries.map(e=>e.rto),kind:"rto"},
+    {k:"rpo",label:"Data loss (RPO)",vals:entries.map(e=>e.rpo),kind:"rpo"},
+  ];
+  return rows;
+}
+function gapOf(row){
+  const v=row.vals.filter(x=>x!=null); if(v.length<2) return null;
+  if(row.kind==="lv"){const g=Math.max(...v)-Math.min(...v); return g;}
+  const arr = row.kind==="mtpd"?MTPD:row.kind==="rto"?RTO:RPO; const idx=v.map(x=>arr.findIndex(o=>o.v===x));
+  const g=Math.max(...idx)-Math.min(...idx); return g===0?0:g===1?1:2;
+}
+const gapTxt=g=> g==null?"":g===0?'<span class="gap0">Aligned</span>':g===1?'<span class="gap1">Differs</span>':'<span class="gap2">Discuss</span>';
+function valCell(row,v){
+  if(row.kind==="lv") return lvCell(v);
+  if(v==null) return '<span class="muted">—</span>';
+  if(row.kind==="mtpd") return `<span class="cell lv${mtpdLevel(v)}">${lbl(MTPD,v)}</span>`;
+  return `<span class="mono">${lbl(row.kind==="rto"?RTO:RPO,v)}</span>`;
+}
+function agreedCtl(row, final, editable){
+  const cur = final?.[row.k];
+  if(row.k==="overall"){ const ov=overallOf(final); return editable? `<span id="ag-overall">${lvCell(ov)}</span>` : lvCell(ov); }
+  if(!editable){ return valCell(row,cur); }
+  const opts = row.kind==="lv"? LV.map((l,i)=>({v:i,l})) : row.kind==="mtpd"?MTPD : row.kind==="rto"?RTO:RPO;
+  return `<select id="ag-${row.k}" data-ag="${row.k}" style="min-width:120px"><option value="">—</option>${opts.map(o=>`<option value="${o.v}" ${cur===o.v?"selected":""}>${o.l}</option>`).join("")}</select>`;
+}
+function compareView(){
+  const list = apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+  if(!compareId || !apps.some(a=>a.id===compareId)) compareId = list.find(a=>a.status!=="open")?.id || list[0]?.id || null;
+  const head = `<div><h2>Compare answers</h2><p class="lede">${me.owner?"Answers stay hidden until you reveal them. Reveal in the meeting, talk through the rows marked Discuss, then record the agreed result.":"Answers appear here once the facilitator reveals them in the meeting."}</p></div>`;
+  if(!list.length) return head+`<div class="panel muted">No applications yet.</div>`;
+  const a = apps.find(x=>x.id===compareId);
+  const picker = `<label class="f" style="max-width:360px">Application<select id="cmp-app" data-act="cmpApp">${list.map(x=>`<option value="${x.id}" ${x.id===compareId?"selected":""}>${esc(x.name)}</option>`).join("")}</select></label>`;
+  const rv = reveals[a.id];
+  let body="";
+  if(me.owner){
+    const live = answersFor(a.id);
+    const names = live.map(e=>esc(e.name||"Someone")).join(", ")||"nobody yet";
+    const newer = rv? live.filter(e=>(e.updatedAt||0)>(rv.revealedAt||0)).length : 0;
+    body += `<div class="panel row between"><div><div class="eyebrow">${live.length} answer${live.length===1?"":"s"} in</div><div>${names}</div>${rv&&newer?`<div class="muted" style="font-size:.85rem">${newer} answer${newer>1?"s":""} changed or arrived after the reveal.</div>`:""}</div>
+      <div class="row">${statusPill(a.status)}
+      ${!rv? `<button class="primary" data-act="reveal" ${live.length?"":"disabled"}>Reveal answers to the group</button>` : `<button data-act="reveal">Refresh revealed answers</button><button data-act="reopen">Re-open for answers</button>`}</div></div>`;
+  }
+  if(!rv){ return head+picker+body+`<div class="panel"><h3>${esc(a.name)}: answers hidden</h3><p class="muted" style="margin:0">${me.owner?"Reveal when everyone has submitted. Participants then can't change their answers.":"Your answer is private until the reveal."}</p></div>`; }
+  const entries = rv.entries||[];
+  const editable = me.owner;
+  const rows = compareRows(entries);
+  const final = editable? (a.final||{}) : a.final;
+  body += `<div class="tbl-wrap"><table><thead><tr><th>Dimension</th>${entries.map(e=>`<th>${esc(e.name||"Someone")}</th>`).join("")}<th>Spread</th><th>Agreed result</th></tr></thead><tbody>
+    ${rows.map(r=>{
+      const span=entries.length+3;
+      const grp = r.k==="ops"? `<tr class="grp-h"><td colspan="${span}">Impact if unavailable</td></tr>` : r.k==="mtpd"? `<tr class="grp-h"><td colspan="${span}">Downtime tolerance and recovery</td></tr>` : "";
+      const isDim = DIMS.some(d=>d.k===r.k), isTot = r.k==="overall";
+      const label = isTot? `<div class="tot-l"><b>Overall criticality</b><small>= highest of the 5 impact ratings above</small></div>` : r.label;
+      return grp+`<tr class="${isDim?"dim-r":""} ${isTot?"tot-r":""}"><td>${label}</td>${r.vals.map(v=>`<td class="c">${valCell(r,v)}</td>`).join("")}<td>${gapTxt(gapOf(r))}</td><td>${(final||editable)?agreedCtl(r,final,editable):'<span class="muted">Not agreed yet</span>'}</td></tr>`;
+    }).join("")}
+  </tbody></table></div>`;
+  if(editable) body += `<div class="panel" style="display:grid;gap:10px"><label class="f">Agreed notes / decisions<textarea id="ag-notes" rows="2">${esc(final?.notes||"")}</textarea></label><div class="row"><button class="primary" data-act="saveFinal">Save agreed result</button>${a.final?.savedAt?`<span class="muted" style="font-size:.85rem">Last saved ${fmtDate(a.final.savedAt)}</span>`:""}</div></div>`;
+  else if(final?.notes) body += `<div class="panel"><div class="eyebrow">Agreed notes</div><p style="margin:4px 0 0">${esc(final.notes)}</p></div>`;
+  if(entries.some(e=>e.note)) body += `<div class="panel" style="display:grid;gap:10px"><h3>Notes from participants</h3><ul class="comments">${entries.filter(e=>e.note).map(e=>`<li><b>${esc(e.name||"Someone")}</b>: ${esc(e.note)}</li>`).join("")}</ul></div>`;
+  return head+picker+body;
+}
+async function doReveal(){
+  const a=apps.find(x=>x.id===compareId); const live=answersFor(a.id);
+  const entries = live.map(e=>({uid:e.uid,name:e.name||"",ratings:e.ratings||{},mtpd:e.mtpd??null,rto:e.rto??null,rpo:e.rpo??null,note:e.note||""}));
+  try{ await db.doc("reveals/"+a.id).set({appId:a.id,revealedAt:Date.now(),entries});
+    if(a.status==="open") await db.doc("apps/"+a.id).update({status:"revealed"});
+    toast("Answers revealed"); }catch{ toast("Couldn't reveal. Try again."); }
+}
+async function doReopen(){
+  const a=apps.find(x=>x.id===compareId);
+  try{ await db.doc("reveals/"+a.id).delete(); await db.doc("apps/"+a.id).update({status:"open"}); toast("Re-opened for answers"); }catch{ toast("Couldn't re-open. Try again."); }
+}
+async function saveFinal(){
+  const a=apps.find(x=>x.id===compareId); const f={};
+  document.querySelectorAll("[data-ag]").forEach(s=>{ if(s.value!=="") f[s.dataset.ag]=+s.value; });
+  f.notes=($("#ag-notes")?.value||"").trim(); f.savedAt=Date.now(); f.overall=overallOf(f);
+  try{ await db.doc("apps/"+a.id).update({final:f,status:"agreed"}); toast("Agreed result saved"); }catch{ toast("Couldn't save. Try again."); }
+}
+
+/* ----- Results (owner) ----- */
+function allRows(){
+  const rows=[];
+  allResp.forEach(r=>{ Object.entries(r.data.answers||{}).forEach(([appId,ans])=>{
+    const a=apps.find(x=>x.id===appId); if(!a||!ans.submittedAt) return;
+    rows.push({appId,app:a.name,area:a.area||"",status:a.status||"open",name:ans.name||"",r:ans.ratings||{},overall:overallOf(ans.ratings),mtpd:ans.mtpd,rto:ans.rto,rpo:ans.rpo,note:ans.note||"",submittedAt:ans.submittedAt});
+  });});
+  return rows.sort((x,y)=>x.app.localeCompare(y.app)||x.name.localeCompare(y.name));
+}
+function filtered(){
+  return allRows().filter(x=>(!filt.app||x.appId===filt.app)&&(!filt.area||x.area===filt.area)&&(filt.level===""||x.overall===+filt.level)&&(!filt.status||x.status===filt.status));
+}
+function filteredApps(){
+  return apps.filter(a=>(!filt.app||a.id===filt.app)&&(!filt.area||(a.area||"")===filt.area)&&(!filt.status||(a.status||"open")===filt.status)&&(filt.level===""||a.final?.overall===+filt.level)).sort((a,b)=>(a.name||"").localeCompare(b.name||""));
+}
+function sel(id,key,opts,all){return `<label class="f">${all}<select id="${id}" data-filt="${key}"><option value="">All</option>${opts.map(o=>`<option value="${esc(o[0])}" ${String(filt[key])===String(o[0])?"selected":""}>${esc(o[1])}</option>`).join("")}</select></label>`}
+function resultsView(){
+  const areas=[...new Set(apps.map(a=>a.area).filter(Boolean))].sort();
+  const fa=filteredApps(), fr=filtered();
+  return `<div class="row between"><div><h2>All results</h2><p class="lede">The agreed result for each application.</p></div>
+    <button class="primary" data-act="export">Export to Excel</button></div>
+  <div class="panel grid2">
+    ${sel("fl-app","app",apps.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(a=>[a.id,a.name]),"Application")}
+    ${sel("fl-area","area",areas.map(a=>[a,a]),"Business area")}
+    ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
+    ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
+  </div>
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th></tr></thead><tbody>
+  ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td><td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td></tr>`}).join("") : `<tr><td colspan="9" class="muted">No applications match these filters.</td></tr>`}
+  </tbody></table></div>`;
+}
+async function exportXlsx(){
+  if(!window.XLSX){toast("The Excel library didn't load. Reload the page and try again.");return}
+  const lvN=v=>v==null?"":LV[v];
+  const s1=filteredApps().map(a=>{const f=a.final||{};const o={"Application":a.name,"Business area":a.area||"","Responsible":a.owner||"","Session date":a.sessionDate||"","Status":a.status||"open","Answers":countFor(a.id)};
+    DIMS.forEach(d=>o[d.label]=f.savedAt?lvN(f[d.k]):""); o["Overall criticality"]=f.savedAt?lvN(f.overall):""; o["MTPD"]=f.mtpd!=null?lbl(MTPD,f.mtpd):""; o["RTO"]=f.rto!=null?lbl(RTO,f.rto):""; o["RPO"]=f.rpo!=null?lbl(RPO,f.rpo):""; o["Agreed notes"]=f.notes||""; o["Agreed on"]=f.savedAt?new Date(f.savedAt).toISOString().slice(0,10):""; return o;});
+  const s2=filtered().map(x=>{const o={"Application":x.app,"Business area":x.area,"Participant":x.name};
+    DIMS.forEach(d=>o[d.label]=lvN(x.r[d.k])); o["Overall criticality"]=lvN(x.overall); o["MTPD"]=lbl(MTPD,x.mtpd); o["RTO"]=lbl(RTO,x.rto); o["RPO"]=x.rpo!=null?lbl(RPO,x.rpo):""; o["Submitted"]=new Date(x.submittedAt).toISOString().slice(0,10); return o;});
+  const wb=XLSX.utils.book_new();
+  const mk=(rows)=>{const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{"(no rows)":""}]); const keys=Object.keys(rows[0]||{}); ws["!cols"]=keys.map(k=>({wch:Math.min(40,Math.max(k.length,...rows.map(r=>String(r[k]??"").length))+2)})); return ws;};
+  XLSX.utils.book_append_sheet(wb,mk(s1),"Agreed results");
+  XLSX.utils.book_append_sheet(wb,mk(s2),"Individual answers");
+  const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
+  const dl=await claude.use("downloads");
+  if(!dl){toast("Downloads aren't available in this view.");return}
+  try{ await dl.save({filename:`app-criticality-${new Date().toISOString().slice(0,10)}.xlsx`,data:buf}); toast("Excel file saved"); }
+  catch(e){ if(e?.code!=="declined") toast("Couldn't save the file."); }
+}
+
+/* ----- Applications: add / delete (owner) ----- */
+async function addApp(e){
+  e.preventDefault(); const fd=new FormData(e.target); const name=(fd.get("name")||"").trim(); if(!name) return;
+  try{ await db.doc("apps/"+slug(name)).set({name,area:(fd.get("area")||"").trim(),owner:(fd.get("owner")||"").trim(),sessionDate:fd.get("sessionDate")||"",status:"open",createdAt:Date.now()}); addOpen=false; render(); toast(`${name} added`); }
+  catch{ toast("Couldn't add the application. Try again."); }
+}
+async function delApp(id){
+  confirmDel=null;
+  try{ await db.doc("apps/"+id).delete(); await db.doc("reveals/"+id).delete(); toast("Application deleted"); }catch{ toast("Couldn't delete. Try again."); }
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]"); if(!b) return; const act=b.dataset.act, id=b.dataset.id;
+  if(act==="openApp"){openAppId=id;draft=null;justDone=false;const sv=myDoc?.answers?.[id];const ld=loadDraft(id);step=sv?STEPS.length-1:-1;if(!sv&&ld){const i=STEPS.findIndex(x=>x.k!=="review"&&(x.k==="mtpd"||x.k==="rto"||x.k==="rpo"?ld[x.k]==null:ld.ratings?.[x.k]==null));step=i<0?STEPS.length-1:i;}shownStep=null;render();scrollTo(0,0)}
+  else if(act==="go") goStep(+b.dataset.step);
+  else if(act==="pick") pick(b.dataset.k,+b.dataset.v);
+  else if(act==="submit") submitForm();
+  else if(act==="back"){openAppId=null;draft=null;justDone=false;clearTimeout(advT);render()}
+  else if(act==="reveal") doReveal();
+  else if(act==="reopen") doReopen();
+  else if(act==="saveFinal") saveFinal();
+  else if(act==="export") exportXlsx();
+  else if(act==="goCompare"){compareId=id;location.hash="compare"}
+  else if(act==="addOpen"){addOpen=true;render();$("#n-name")?.focus()}
+  else if(act==="addClose"){addOpen=false;render()}
+  else if(act==="del"){confirmDel=id;render()}
+  else if(act==="delNo"){confirmDel=null;render()}
+  else if(act==="delYes") delApp(id);
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="cmp-app"){compareId=t.value;render()}
+  else if(t.dataset.filt){filt[t.dataset.filt]=t.value;render()}
+  else if(t.dataset.ag==="__"){}
+  else if(t.dataset.ag){ const f={}; document.querySelectorAll("[data-ag]").forEach(s=>{if(s.value!=="")f[s.dataset.ag]=+s.value}); const el=$("#ag-overall"); if(el) el.innerHTML=lvCell(overallOf(f)); }
+});
+document.addEventListener("input",e=>{ if(!draft) return; if(e.target.id==="f-name"){ draft.name=e.target.value; keepDraft(); } });
+document.addEventListener("keydown",e=>{
+  if(view!=="assess"||!openAppId||justDone||e.target.closest("input,textarea,select")||e.metaKey||e.ctrlKey) return;
+  const st=STEPS[step]; if(!st||st.k==="review") return;
+  const n=parseInt(e.key,10); const opts=st.type==="lv"?[0,1,2]:TIMEQ[st.k].arr.map(o=>o.v);
+  if(n>=1&&n<=opts.length){e.preventDefault();pick(st.k,opts[n-1]);}
+  else if(e.key==="ArrowLeft"&&step>0) goStep(step-1); else if(e.key==="ArrowRight") goStep(step+1);
+});
+document.addEventListener("submit",e=>{ if(e.target.id==="addf") addApp(e); });
+
+/* ---------- boot ---------- */
+(async()=>{
+  route();
+  if(!window.claude?.use){ $("#main").innerHTML=`<div class="panel"><h3>Open this page in Claude</h3><p class="muted">The shared assessment store only works inside claude.ai.</p></div>`; return; }
+  [db,user]=await Promise.all([claude.use("db"),claude.use("user")]);
+  if(!db){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Sign in to claude.ai with the account the facilitator invited, then reload this page.</p></div>`; return; }
+  if(user){ me.id=await user.id(); me.owner=!!(await user.isOwner()); try{ me.name=(await user.name())||""; }catch{} }
+  if(!me.id){ $("#main").innerHTML=`<div class="panel"><h3>Sign in to take part</h3><p class="muted">Your answers are tied to your claude.ai account.</p></div>`; return; }
+  const slow=setTimeout(()=>{ if(!ready.apps){ $("#main").insertAdjacentHTML("afterbegin",`<div class="banner warn">The assessment store isn't answering yet. Data may be missing or out of date.</div>`);} },10000);
+  const onErr=()=>toast("Lost connection to the store. Reload the page to reconnect.");
+  db.collection("apps").onSnapshot(s=>{ apps=s.docs.map(d=>({id:d.id,...d.data()})); if(!s.metadata.fromCache){ready.apps=true;clearTimeout(slow)} if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  db.collection("reveals").onSnapshot(s=>{ reveals={}; s.docs.forEach(d=>reveals[d.id]=d.data()); if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  db.doc("responses/"+me.id).onSnapshot(s=>{ myDoc=s.exists? s.data():null; if(!openAppId) render(); },()=>{});
+  if(me.owner) db.collection("responses").onSnapshot(s=>{ allResp=s.docs.map(d=>({id:d.id,data:d.data()})); if(!document.activeElement?.closest?.("#wiz,#addf,[data-ag],#ag-notes")) render(); },onErr);
+  route();
+})();
+</script>
