@@ -43,6 +43,31 @@ create table if not exists public.reveals (
   entries     jsonb not null default '[]'::jsonb
 );
 
+-- Data checks: only the values the app offers can be stored (also blocks script injection through answers)
+create or replace function public.valid_ratings(r jsonb)
+returns boolean
+language sql
+immutable
+as $$
+  select jsonb_typeof(r) = 'object'
+     and not exists (
+       select 1 from jsonb_each(r) e
+       where e.key not in ('ops', 'cust', 'fin', 'legal', 'rep')
+          or e.value not in ('0'::jsonb, '1'::jsonb, '2'::jsonb)
+     );
+$$;
+
+alter table public.responses drop constraint if exists responses_ratings_valid;
+alter table public.responses add  constraint responses_ratings_valid check (public.valid_ratings(ratings));
+alter table public.responses drop constraint if exists responses_name_len;
+alter table public.responses add  constraint responses_name_len check (char_length(name) between 1 and 100);
+alter table public.responses drop constraint if exists responses_times_valid;
+alter table public.responses add  constraint responses_times_valid check (
+  (mtpd is null or mtpd in (2, 8, 24, 72)) and
+  (rto  is null or rto  in (1, 2, 4, 8, 24, 72)) and
+  (rpo  is null or rpo  in (0, 0.25, 1, 4, 24))
+);
+
 -- Is the signed-in user a facilitator?
 create or replace function public.is_admin()
 returns boolean

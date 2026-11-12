@@ -276,7 +276,7 @@ let confirmDel=null;
 const $ = s=>document.querySelector(s);
 const esc = s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmtDate = t=> t? new Date(t).toLocaleDateString(undefined,{year:"numeric",month:"short",day:"numeric"}) : "—";
-const lvCell = v=> v==null? '<span class="muted">—</span>' : `<span class="cell lv${v}">${LV[v]}</span>`;
+const lvCell = v=> ![0,1,2].includes(v)? '<span class="muted">—</span>' : `<span class="cell lv${v}">${LV[v]}</span>`;
 function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,2600)}
 const statusPill = s=>`<span class="pill st-${s||"open"}">${s==="revealed"?"Answers revealed":s==="agreed"?"Agreed":"Collecting answers"}</span>`;
 const slug = s=> (String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"app")+"-"+Math.random().toString(36).slice(2,7);
@@ -609,14 +609,20 @@ async function sendLink(e){
 /* ---------- data loading ---------- */
 const isRls = err => err && (err.code==="42501" || /row-level security/i.test(err.message||""));
 const ms = t => t? Date.parse(t) : null;
+/* Treat everything from the database as untrusted: keep only the values the app knows. */
+const okLv = v => [0,1,2].includes(v)? v : undefined;
+const okNum = (v,arr) => arr.some(o=>o.v===v)? v : null;
+const cleanRatings = r => { const o={}; DIMS.forEach(d=>{ const v=okLv(r?.[d.k]); if(v!==undefined) o[d.k]=v; }); return o; };
+const cleanAnswer = x => ({ratings:cleanRatings(x?.ratings), mtpd:okNum(x?.mtpd,MTPD), rto:okNum(x?.rto,RTO), rpo:okNum(x?.rpo,RPO)});
+const cleanFinal = f => { if(!f||typeof f!=="object") return null; const c={...cleanAnswer({ratings:f,mtpd:f.mtpd,rto:f.rto,rpo:f.rpo})}; const o={...c.ratings,mtpd:c.mtpd,rto:c.rto,rpo:c.rpo,notes:String(f.notes??""),savedAt:typeof f.savedAt==="number"?f.savedAt:null}; o.overall=overallOf(o); return o; };
 async function loadAll(force){
   const [a,r,v]=await Promise.all([db.from("apps").select("*"),db.from("responses").select("*"),db.from("reveals").select("*")]);
   const err=a.error||r.error||v.error;
   if(err){ loadErr = /relation|does not exist|schema cache/i.test(err.message||"")? "The database tables are missing. Run supabase/schema.sql in the Supabase SQL editor." : "The database didn't answer. Check your connection and try again."; ready.apps=true; render(); return; }
   loadErr=null;
-  apps=a.data.map(x=>({id:x.id,name:x.name,area:x.area||"",owner:x.owner||"",sessionDate:x.session_date||"",status:x.status||"open",final:x.final||null,createdAt:ms(x.created_at)}));
-  respRows=r.data.map(x=>({uid:x.user_id,appId:x.app_id,name:x.name||"",ratings:x.ratings||{},mtpd:x.mtpd,rto:x.rto,rpo:x.rpo,submittedAt:ms(x.submitted_at),updatedAt:ms(x.updated_at)}));
-  reveals={}; v.data.forEach(x=>reveals[x.app_id]={revealedAt:ms(x.revealed_at),entries:x.entries||[]});
+  apps=a.data.map(x=>({id:x.id,name:x.name,area:x.area||"",owner:x.owner||"",sessionDate:x.session_date||"",status:x.status||"open",final:cleanFinal(x.final),createdAt:ms(x.created_at)}));
+  respRows=r.data.map(x=>({uid:x.user_id,appId:x.app_id,name:x.name||"",...cleanAnswer(x),submittedAt:ms(x.submitted_at),updatedAt:ms(x.updated_at)}));
+  reveals={}; v.data.forEach(x=>reveals[x.app_id]={revealedAt:ms(x.revealed_at),entries:(Array.isArray(x.entries)?x.entries:[]).map(e=>({uid:String(e?.uid??""),name:String(e?.name??""),...cleanAnswer(e)}))});
   const mine=respRows.filter(x=>x.uid===me.id);
   myDoc={name:me.name, answers:Object.fromEntries(mine.map(x=>[x.appId,x]))};
   ready.apps=true;
