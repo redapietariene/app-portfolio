@@ -606,8 +606,8 @@ function resultsView(){
     ${sel("fl-status","status",[["open","Collecting answers"],["revealed","Answers revealed"],["agreed","Agreed"]],"Status")}
     ${sel("fl-level","level",LV.map((l,i)=>[i,l]),"Criticality")}
   </div>
-  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Responsible</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Proposed SLA</th></tr></thead><tbody>
-  ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${esc(a.owner||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td><td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td><td>${slaCell(a.final)}</td></tr>`}).join("") : `<tr><td colspan="10" class="muted">No applications match these filters.</td></tr>`}
+  <div class="tbl-wrap"><table><thead><tr><th>Application</th><th>Business area</th><th>Status</th><th>Answers</th><th>Overall criticality</th><th>MTPD</th><th>RTO</th><th>RPO</th><th>Proposed SLA</th></tr></thead><tbody>
+  ${fa.length? fa.map(a=>{const f=a.final||{};return `<tr><td><b>${esc(a.name)}</b></td><td>${esc(a.area||"")}</td><td>${statusPill(a.status)}</td><td class="mono c">${countFor(a.id)}</td><td>${f.savedAt?lvCell(f.overall):'<span class="muted">—</span>'}</td><td class="mono">${f.mtpd!=null?lbl(MTPD,f.mtpd):""}</td><td class="mono">${f.rto!=null?lbl(RTO,f.rto):""}</td><td class="mono">${f.rpo!=null?lbl(RPO,f.rpo):""}</td><td>${slaCell(a.final)}</td></tr>`}).join("") : `<tr><td colspan="9" class="muted">No applications match these filters.</td></tr>`}
   </tbody></table></div>`;
 }
 async function exportXlsx(){
