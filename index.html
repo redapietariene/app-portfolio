@@ -295,7 +295,7 @@ function render(){
   $("#nav").innerHTML = views().map(([k,l])=>`<a href="#${k}" ${k===view?'aria-current="page"':""}>${l}</a>`).join("");
   $("#who").textContent = me.id? (me.owner? "Facilitator view" : "Participant view") : "";
   $("#nav").hidden = !session;
-  $("#acct").innerHTML = session? `<span>${me.owner?"Signed in as":"Answering as"} <b>${esc(me.owner?(session.user.email||""):(me.name||"guest"))}</b></span><button class="small ghost" data-act="signOut">Sign out</button>` : "";
+  $("#acct").innerHTML = session? `<span>${session.user.is_anonymous?"Answering as":"Signed in as"} <b>${esc(session.user.is_anonymous?(me.name||"guest"):(session.user.email||""))}</b></span><button class="small ghost" data-act="signOut">Sign out</button>` : "";
   const m=$("#main");
   if(!db){ m.innerHTML=`<div class="panel"><h3>The app couldn't start</h3><p class="muted" style="margin:0">The database library didn't load. Check your internet connection and reload the page.</p></div>`; return; }
   if(!session){ m.innerHTML=loginView(); return; }
@@ -322,9 +322,11 @@ function assessList(){
     <datalist id="areas">${[...new Set(apps.map(a=>a.area).filter(Boolean))].map(a=>`<option value="${esc(a)}">`).join("")}</datalist>
     <div class="row"><button class="primary" type="submit">Add application</button><button type="button" class="ghost" data-act="addClose">Cancel</button></div>
   </form>` : "";
-  if(!ready.apps) return intro+form+`<div class="panel muted">Loading applications…</div>`;
-  if(!list.length) return intro+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one. Participants will see it here.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
-  return intro+form+`<div class="cards">${list.map(a=>{
+  const notAdmin = session && !session.user.is_anonymous && !me.owner
+    ? `<div class="banner warn">You're signed in as <b>${esc(session.user.email||"")}</b>, which isn't on the facilitator list, so you see the participant view. Add this exact email to the <code>admins</code> table in Supabase, then reload the page.</div>` : "";
+  if(!ready.apps) return intro+notAdmin+form+`<div class="panel muted">Loading applications…</div>`;
+  if(!list.length) return intro+notAdmin+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one. Participants will see it here.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
+  return intro+notAdmin+form+`<div class="cards">${list.map(a=>{
     const done = mine[a.id]?.submittedAt;
     const ownerBar = !me.owner? "" : confirmDel===a.id
       ? `<div class="confirm" style="font-size:.85rem">Delete ${esc(a.name)} and all its answers? <button class="small danger" data-act="delYes" data-id="${a.id}">Delete</button><button class="small" data-act="delNo">Keep</button></div>`
