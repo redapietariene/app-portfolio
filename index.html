@@ -323,7 +323,7 @@ function assessList(){
     <div class="row"><button class="primary" type="submit">Add application</button><button type="button" class="ghost" data-act="addClose">Cancel</button></div>
   </form>` : "";
   const notAdmin = session && !session.user.is_anonymous && !me.owner
-    ? `<div class="banner warn">You're signed in as <b>${esc(session.user.email||"")}</b>, which isn't on the facilitator list, so you see the participant view. Add this exact email to the <code>admins</code> table in Supabase, then reload the page.</div>` : "";
+    ? `<div class="banner warn">You're signed in as <b>${esc(session.user.email||"")}</b>, which doesn't have facilitator access, so you see the participant view.</div>` : "";
   if(!ready.apps) return intro+notAdmin+form+`<div class="panel muted">Loading applications…</div>`;
   if(!list.length) return intro+notAdmin+form+`<div class="panel"><h3>No applications yet</h3><p class="muted" style="margin:0">${me.owner?"Use <b>+ Add application</b> to create the first one. Participants will see it here.":"The facilitator has not added any applications yet. Check back after the invite."}</p></div>`;
   return intro+notAdmin+form+`<div class="cards">${list.map(a=>{
