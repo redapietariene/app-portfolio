@@ -203,7 +203,7 @@ td select{width:auto;min-width:130px;padding:6px 10px;font-size:.85rem;border-ra
 .q h2{font-size:clamp(1.45rem,4.5vw,1.95rem);line-height:1.2}
 .q .hl{background:linear-gradient(120deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .q .hint{margin:-8px 0 0}
-.scenario{margin:0 0 -10px;font-family:var(--f-display);font-size:clamp(1.45rem,4.5vw,1.95rem);font-weight:800;line-height:1.2;letter-spacing:-.02em;color:var(--fg);text-wrap:pretty}
+.scenario{margin:0 0 -10px;font-family:var(--f-display);font-size:clamp(1.15rem,3.4vw,1.4rem);font-weight:700;line-height:1.2;letter-spacing:-.02em;color:var(--fg);text-wrap:pretty}
 @keyframes pop{from{transform:translateY(12px);opacity:.2}to{transform:none;opacity:1}}
 .picks{display:grid;gap:10px}
 .pick{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:16px;text-align:left;padding:14px 16px;border-radius:16px;border:1.5px solid var(--line);background:var(--surface);font-weight:400;box-shadow:none;transition:transform .15s,border-color .15s,background .15s,box-shadow .15s}
@@ -433,7 +433,7 @@ function hintFor(k,t){
   const lim = draft.mtpd===72? "more than 24 hours" : "up to "+lbl(MTPD,draft.mtpd);
   return `You said the business can manage ${lim} without it. Pick a shorter time, so it's back before the impact gets serious.`;
 }
-const scenario = a => `<p class="scenario">Imagine ${esc(a.name)} stops working…</p>`;
+const scenario = a => `<p class="scenario">Imagine <span class="hl">${esc(a.name)}</span> stops working…</p>`;
 function assessForm(){
   const a = apps.find(x=>x.id===openAppId);
   if(!a){openAppId=null;return assessList()}
